@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'register_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -13,6 +13,11 @@ class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _loading = false;
+
+  Future<void> _saveLastRoute(String route) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('last_route', route);
+  }
 
   Future<void> _login() async {
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
@@ -28,10 +33,17 @@ class _LoginPageState extends State<LoginPage> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
+
       if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Login berhasil!')));
+
+        // Simpan route terakhir
+        await _saveLastRoute('/home');
+
+        // Arahkan ke halaman utama
+        Navigator.pushReplacementNamed(context, '/home');
       }
     } on FirebaseAuthException catch (e) {
       ScaffoldMessenger.of(
@@ -130,13 +142,10 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     const SizedBox(height: 12),
                     TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const RegisterPage(),
-                          ),
-                        );
+                      onPressed: () async {
+                        // Simpan route terakhir sebelum pindah
+                        await _saveLastRoute('/register');
+                        Navigator.pushNamed(context, '/register');
                       },
                       child: const Text("Belum punya akun? Register"),
                     ),

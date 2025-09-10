@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -14,6 +15,11 @@ class _RegisterPageState extends State<RegisterPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _loading = false;
+
+  Future<void> _saveLastRoute(String route) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('last_route', route);
+  }
 
   Future<void> _register() async {
     if (_nameController.text.isEmpty ||
@@ -47,7 +53,12 @@ class _RegisterPageState extends State<RegisterPage> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text("Registrasi berhasil!")));
-        Navigator.pop(context); // kembali ke halaman login
+
+        // Simpan last route = /login
+        await _saveLastRoute('/login');
+
+        // Setelah register, arahkan ke login
+        Navigator.pushReplacementNamed(context, '/login');
       }
     } on FirebaseAuthException catch (e) {
       _showErrorDialog("Auth error: ${e.message}");
@@ -167,7 +178,10 @@ class _RegisterPageState extends State<RegisterPage> {
                     ),
                     const SizedBox(height: 12),
                     TextButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () async {
+                        await _saveLastRoute('/login');
+                        Navigator.pushReplacementNamed(context, '/login');
+                      },
                       child: const Text("Sudah punya akun? Login"),
                     ),
                   ],
