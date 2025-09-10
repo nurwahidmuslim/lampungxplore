@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "478090394339",
+    "project_id": "lampung-xplore1",
+    "storage_bucket": "lampung-xplore1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:478090394339:android:29768effa88206be6663d6",
+        "android_client_info": {
+          "package_name": "com.example.lampungxplore"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDsrMgVoRp6OQzTVumfPg4z4PBqbXwFm9Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
