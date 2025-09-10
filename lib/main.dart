@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 import 'login_page.dart';
 import 'register_page.dart';
+import 'home_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,7 +34,7 @@ class LampungXploreApp extends StatelessWidget {
       routes: {
         '/login': (context) => const LoginPage(),
         '/register': (context) => const RegisterPage(),
-        // '/home': (context) => const HomePage(),
+        '/home': (context) => const HomePage(),
       },
 
       // simpan route terakhir setiap kali pindah halaman
