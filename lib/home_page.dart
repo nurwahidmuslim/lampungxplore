@@ -50,7 +50,7 @@ class HomePage extends StatelessWidget {
                     bottom: 20,
                     left: 16,
                     child: Text(
-                      "EXPLORE KALIMANTAN",
+                      "EXPLORE LAMPUNG",
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 22,
