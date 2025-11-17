@@ -18,7 +18,7 @@ class HomePage extends StatelessWidget {
               Stack(
                 children: [
                   Image.asset(
-                    "assets/images/banner.jpg", // ganti dengan gambar banner
+                    "assets/images/banner.jpg",
                     height: 220,
                     width: double.infinity,
                     fit: BoxFit.cover,
@@ -50,7 +50,7 @@ class HomePage extends StatelessWidget {
                     bottom: 20,
                     left: 16,
                     child: Text(
-                      "EXPLORE KALIMANTAN",
+                      "EXPLORE LAMPUNG",
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 22,
@@ -71,39 +71,21 @@ class HomePage extends StatelessWidget {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   children: const [
-                    _MenuItem(
-                      iconPath: "assets/icons/destination.png",
-                      label: "Destination",
-                    ),
-                    _MenuItem(iconPath: "assets/icons/food.png", label: "Food"),
-                    _MenuItem(
-                      iconPath: "assets/icons/homestay.png",
-                      label: "Homestay",
-                    ),
-                    _MenuItem(
-                      iconPath: "assets/icons/budaya.png",
-                      label: "Budaya",
-                    ),
-                    _MenuItem(iconPath: "assets/icons/alam.png", label: "Alam"),
-                    _MenuItem(
-                      iconPath: "assets/icons/religi.png",
-                      label: "Religi",
-                    ),
-                    _MenuItem(
-                      iconPath: "assets/icons/sejarah.png",
-                      label: "Sejarah",
-                    ),
-                    _MenuItem(
-                      iconPath: "assets/icons/produk.png",
-                      label: "Produk",
-                    ),
+                    _MenuItem(icon: Icons.place, label: "Destination"),
+                    _MenuItem(icon: Icons.restaurant, label: "Food"),
+                    _MenuItem(icon: Icons.home_filled, label: "Homestay"),
+                    _MenuItem(icon: Icons.account_balance, label: "Budaya"),
+                    _MenuItem(icon: Icons.landscape, label: "Alam"),
+                    _MenuItem(icon: Icons.church, label: "Religi"),
+                    _MenuItem(icon: Icons.history_edu, label: "Sejarah"),
+                    _MenuItem(icon: Icons.shopping_basket, label: "Produk"),
                   ],
                 ),
               ),
 
               const SizedBox(height: 16),
 
-              // Top Destinations Section
+              // Top Destinations
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
@@ -136,15 +118,6 @@ class HomePage extends StatelessWidget {
               ),
 
               const SizedBox(height: 24),
-
-              // User Info (opsional)
-              if (user != null)
-                Center(
-                  child: Text(
-                    "Login sebagai: ${user.email}",
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ),
             ],
           ),
         ),
@@ -172,12 +145,14 @@ class HomePage extends StatelessWidget {
   }
 }
 
-// Widget Menu
+// ========================
+// Widget Menu (Icon Bawaan)
+// ========================
 class _MenuItem extends StatelessWidget {
-  final String iconPath;
+  final IconData icon;
   final String label;
 
-  const _MenuItem({required this.iconPath, required this.label});
+  const _MenuItem({required this.icon, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -187,7 +162,7 @@ class _MenuItem extends StatelessWidget {
         CircleAvatar(
           radius: 28,
           backgroundColor: Colors.green.shade100,
-          child: Image.asset(iconPath, height: 30, width: 30),
+          child: Icon(icon, size: 30, color: Colors.green),
         ),
         const SizedBox(height: 8),
         Text(
@@ -200,7 +175,9 @@ class _MenuItem extends StatelessWidget {
   }
 }
 
-// Widget Card Destinasi
+// ========================
+// Card Destinasi
+// ========================
 class _DestinationCard extends StatelessWidget {
   final String image;
   const _DestinationCard({required this.image});
