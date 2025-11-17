@@ -1,7 +1,9 @@
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -58,8 +60,8 @@ class _RegisterPageState extends State<RegisterPage>
 
     setState(() => _loading = true);
     try {
-      // 1. Buat akun di Firebase Auth
-      UserCredential userCredential = await FirebaseAuth.instance
+      // 1. Buat akun di Firebase Auth (email/password)
+      final userCredential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(
             email: _emailController.text.trim(),
             password: _passwordController.text.trim(),
@@ -67,31 +69,98 @@ class _RegisterPageState extends State<RegisterPage>
 
       // 2. Simpan data tambahan di Firestore
       await FirebaseFirestore.instance
-          .collection("users")
+          .collection('users')
           .doc(userCredential.user!.uid)
           .set({
-            "name": _nameController.text.trim(),
-            "email": _emailController.text.trim(),
-            "role": "user",
-            "createdAt": FieldValue.serverTimestamp(),
+            'name': _nameController.text.trim(),
+            'email': _emailController.text.trim(),
+            'role': 'user',
+            'createdAt': FieldValue.serverTimestamp(),
           });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Registrasi berhasil! Silakan login.")),
+          const SnackBar(content: Text('Registrasi berhasil! Silakan login.')),
         );
 
-        // Simpan last route = /login
+        // Simpan last route = /login dan arahkan ke login
         await _saveLastRoute('/login');
-
-        // Setelah register, arahkan ke login
         Navigator.pushReplacementNamed(context, '/login');
       }
     } on FirebaseAuthException catch (e) {
-      final message = e.message ?? "Terjadi kesalahan saat registrasi.";
-      _showErrorDialog("Auth error: $message");
+      final message = e.message ?? 'Terjadi kesalahan saat registrasi.';
+      _showErrorDialog('Auth error: $message');
     } catch (e) {
-      _showErrorDialog("Terjadi kesalahan: $e");
+      _showErrorDialog('Terjadi kesalahan: $e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// Sign up / Sign in using Google (jika user baru, simpan ke Firestore)
+  Future<void> _signInWithGoogle() async {
+    setState(() => _loading = true);
+    try {
+      // Jika butuh clientId khusus untuk web, gunakan GoogleSignIn(clientId: '...') saat kIsWeb
+      final googleSignIn = kIsWeb
+          ? GoogleSignIn(
+              // Optional: jika kamu tidak memakai meta-tag di index.html,
+              // masukkan clientId di sini: clientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
+            )
+          : GoogleSignIn();
+
+      final googleUser = await googleSignIn.signIn();
+      if (googleUser == null) {
+        // user cancelled
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Login Google dibatalkan')),
+          );
+        }
+        return;
+      }
+
+      final googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(
+        credential,
+      );
+
+      // jika pengguna baru, simpan data ke Firestore
+      final additional = userCredential.additionalUserInfo;
+      if (additional != null && additional.isNewUser) {
+        final user = userCredential.user;
+        if (user != null) {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .set({
+                'name': user.displayName ?? '',
+                'email': user.email ?? '',
+                'photoUrl': user.photoURL ?? '',
+                'role': 'user',
+                'createdAt': FieldValue.serverTimestamp(),
+              });
+        }
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Masuk dengan Google berhasil!')),
+        );
+
+        await _saveLastRoute('/home');
+        Navigator.pushReplacementNamed(context, '/home');
+      }
+    } on FirebaseAuthException catch (e) {
+      final message = e.message ?? 'Gagal login dengan Google.';
+      if (mounted) _showErrorDialog('Error: $message');
+    } catch (e) {
+      if (mounted) _showErrorDialog('Terjadi kesalahan: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -101,12 +170,12 @@ class _RegisterPageState extends State<RegisterPage>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Error"),
+        title: const Text('Error'),
         content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text("OK"),
+            child: const Text('OK'),
           ),
         ],
       ),
@@ -206,7 +275,7 @@ class _RegisterPageState extends State<RegisterPage>
           ),
           const SizedBox(height: 12),
           const Text(
-            "Buat Akun - Lampung Xplore",
+            'Buat Akun - Lampung Xplore',
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w700,
@@ -348,32 +417,14 @@ class _RegisterPageState extends State<RegisterPage>
 
           const SizedBox(height: 12),
 
-          // Social buttons (placeholders)
+          // Google button (only social option now)
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _socialButton(
                 icon: Icons.g_mobiledata,
-                label: 'Google',
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Register dengan Google (placeholder)'),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(width: 12),
-              _socialButton(
-                icon: Icons.facebook,
-                label: 'Facebook',
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Register dengan Facebook (placeholder)'),
-                    ),
-                  );
-                },
+                label: 'Daftar / Masuk dengan Google',
+                onTap: _loading ? () {} : _signInWithGoogle,
               ),
             ],
           ),
@@ -413,7 +464,7 @@ class _RegisterPageState extends State<RegisterPage>
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.06),
           borderRadius: BorderRadius.circular(10),
@@ -422,7 +473,7 @@ class _RegisterPageState extends State<RegisterPage>
         child: Row(
           children: [
             Icon(icon, color: Colors.white, size: 20),
-            const SizedBox(width: 8),
+            const SizedBox(width: 12),
             Text(label, style: const TextStyle(color: Colors.white70)),
           ],
         ),

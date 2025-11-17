@@ -2,6 +2,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
@@ -80,6 +82,76 @@ class _LoginPageState extends State<LoginPage>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Terjadi kesalahan tak terduga.')),
       );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// Sign in using Google
+  Future<void> _signInWithGoogle() async {
+    setState(() => _loading = true);
+    try {
+      final googleSignIn = GoogleSignIn();
+      final googleUser = await googleSignIn.signIn();
+      if (googleUser == null) {
+        // user canceled the sign-in
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Login Google dibatalkan')),
+          );
+        }
+        return;
+      }
+
+      final googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(
+        credential,
+      );
+
+      // jika pengguna baru, simpan data ke Firestore
+      final additional = userCredential.additionalUserInfo;
+      if (additional != null && additional.isNewUser) {
+        final user = userCredential.user;
+        if (user != null) {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .set({
+                'name': user.displayName ?? '',
+                'email': user.email ?? '',
+                'photoUrl': user.photoURL ?? '',
+                'role': 'user',
+                'createdAt': FieldValue.serverTimestamp(),
+              });
+        }
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Login dengan Google berhasil!')),
+        );
+
+        await _saveLastRoute('/home');
+        Navigator.pushReplacementNamed(context, '/home');
+      }
+    } on FirebaseAuthException catch (e) {
+      final message = e.message ?? 'Gagal login dengan Google.';
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $message')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Terjadi kesalahan: $e')));
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -339,30 +411,14 @@ class _LoginPageState extends State<LoginPage>
 
           const SizedBox(height: 12),
 
-          // Social buttons (placeholders)
+          // Google button (only social option now)
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _socialButton(
                 icon: Icons.g_mobiledata,
-                label: 'Google',
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Login Google (placeholder)')),
-                  );
-                },
-              ),
-              const SizedBox(width: 12),
-              _socialButton(
-                icon: Icons.facebook,
-                label: 'Facebook',
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Login Facebook (placeholder)'),
-                    ),
-                  );
-                },
+                label: 'Login dengan Google',
+                onTap: _loading ? () {} : _signInWithGoogle,
               ),
             ],
           ),
@@ -402,7 +458,7 @@ class _LoginPageState extends State<LoginPage>
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.06),
           borderRadius: BorderRadius.circular(10),
@@ -411,7 +467,7 @@ class _LoginPageState extends State<LoginPage>
         child: Row(
           children: [
             Icon(icon, color: Colors.white, size: 20),
-            const SizedBox(width: 8),
+            const SizedBox(width: 12),
             Text(label, style: const TextStyle(color: Colors.white70)),
           ],
         ),
