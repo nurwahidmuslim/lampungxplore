@@ -50,7 +50,7 @@ class HomePage extends StatelessWidget {
                     bottom: 20,
                     left: 16,
                     child: Text(
-                      "EXPLORE LAMPUNG",
+                      "EXPLORE KALIMANTAN",
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 22,
@@ -118,6 +118,15 @@ class HomePage extends StatelessWidget {
               ),
 
               const SizedBox(height: 24),
+
+              // User Info
+              if (user != null)
+                Center(
+                  child: Text(
+                    "Login sebagai: ${user.email}",
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
             ],
           ),
         ),
