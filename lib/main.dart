@@ -2,9 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
+
+// Import halaman yang ada
 import 'login_page.dart';
 import 'register_page.dart';
 import 'home_page.dart';
+import 'favorit_page.dart';
+
+// --- TAMBAHAN ---
+// Import untuk halaman baru
+import 'berita_page.dart';
+import 'profil_page.dart';
+// ----------------
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,6 +44,9 @@ class LampungXploreApp extends StatelessWidget {
         '/login': (context) => const LoginPage(),
         '/register': (context) => const RegisterPage(),
         '/home': (context) => const HomePage(),
+        '/favorit': (context) => const FavoritPage(),
+        '/berita': (context) => const BeritaPage(),
+        '/profil': (context) => const ProfilPage(),
       },
 
       // simpan route terakhir setiap kali pindah halaman
@@ -63,6 +75,8 @@ class RouteObserverWithSave extends NavigatorObserver {
   }
 
   void _save(Route route) async {
+    // Hanya simpan rute yang punya nama
+    // Ini penting agar rute internal/dialog tidak tersimpan
     if (route.settings.name != null) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('last_route', route.settings.name!);
