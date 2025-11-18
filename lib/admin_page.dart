@@ -18,7 +18,6 @@ const List<String> wisataCategories = [
   'Budaya',
   'Religi',
   'Sejarah',
-  'Lainnya',
 ];
 
 /// GANTI dengan credential Cloudinary-mu:
@@ -48,6 +47,10 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    // listen to tab changes so we can update UI (e.g. show/hide add button)
+    _tabController.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -112,6 +115,8 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
   // ---------------- UI ----------------
   @override
   Widget build(BuildContext context) {
+    final bool isDestinationsTab = _tabController.index == 0;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin — Lampung Xplore'),
@@ -125,11 +130,6 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
           ],
         ),
         actions: [
-          IconButton(
-            onPressed: () => _showEditDestinationDialog(context),
-            icon: const Icon(Icons.add_circle_outline),
-            tooltip: 'Tambah destinasi',
-          ),
           IconButton(
             onPressed: _confirmSignOut,
             icon: const Icon(Icons.logout),
@@ -155,11 +155,14 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showEditDestinationDialog(context),
-        label: const Text('Tambah'),
-        icon: const Icon(Icons.add),
-      ),
+      // Hanya tampilkan 1 tombol tambah (FloatingActionButton) dan hanya saat berada di tab Destinasi
+      floatingActionButton: isDestinationsTab
+          ? FloatingActionButton.extended(
+              onPressed: () => _showEditDestinationDialog(context),
+              label: const Text('Tambah Destinasi'),
+              icon: const Icon(Icons.add),
+            )
+          : null,
     );
   }
 
@@ -214,8 +217,17 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
 
           final docs = snap.data?.docs ?? [];
           if (docs.isEmpty) {
-            return const Center(
-              child: Text('Belum ada destinasi. Klik + untuk menambahkan.'),
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  Icon(Icons.place, size: 48, color: Colors.grey),
+                  SizedBox(height: 8),
+                  Text(
+                    'Belum ada destinasi. Klik tombol "Tambah Destinasi" untuk menambahkan.',
+                  ),
+                ],
+              ),
             );
           }
 
@@ -243,6 +255,7 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
             .toString();
     final List<String> photos =
         (data['photos'] as List<dynamic>?)?.cast<String>() ?? [];
+    final bool isFeatured = data['isFeatured'] == true;
 
     return Card(
       elevation: 1.5,
@@ -261,7 +274,19 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
                   errorBuilder: (_, __, ___) => const Icon(Icons.broken_image),
                 ),
               ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+        title: Row(
+          children: [
+            if (isFeatured)
+              const Icon(Icons.star, color: Colors.amber, size: 18),
+            if (isFeatured) const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4.0),
           child: Text('$type • $subtitle', overflow: TextOverflow.ellipsis),
@@ -269,6 +294,40 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Toggle featured quickly
+            IconButton(
+              icon: Icon(
+                isFeatured ? Icons.star : Icons.star_border,
+                color: Colors.amber,
+              ),
+              onPressed: () async {
+                try {
+                  await _destRef.doc(id).update({
+                    'isFeatured': !isFeatured,
+                    'updatedAt': FieldValue.serverTimestamp(),
+                  });
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        isFeatured
+                            ? 'Unggulan dihapus'
+                            : 'Ditandai sebagai unggulan',
+                      ),
+                    ),
+                  );
+                } catch (e) {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Gagal update unggulan: $e')),
+                  );
+                }
+              },
+              tooltip: isFeatured
+                  ? 'Hapus dari unggulan'
+                  : 'Tandai sebagai unggulan',
+            ),
+
             IconButton(
               icon: const Icon(Icons.edit, color: Colors.blue),
               onPressed: () => _showEditDestinationDialog(
@@ -366,6 +425,9 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
       text: existing?['mapsUrl'] as String? ?? '',
     );
 
+    // NEW: isFeatured flag
+    bool isFeatured = existing?['isFeatured'] as bool? ?? false;
+
     // menu (kuliner)
     List<Map<String, dynamic>> menuItems = [];
     if (existing != null && existing['menu'] is List) {
@@ -441,7 +503,7 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
           builder: (context, setStateDialog) {
             Future<void> pickMultiImages() async {
               try {
-                final List<XFile>? files = await _picker.pickMultiImage(
+                final List<XFile> files = await _picker.pickMultiImage(
                   imageQuality: 80,
                 );
                 if (files != null && files.isNotEmpty) {
@@ -491,10 +553,12 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
                 'title': title,
                 'description': description,
                 'updatedAt': FieldValue.serverTimestamp(),
+                'isFeatured': isFeatured, // NEW: save isFeatured
               };
 
-              if (mapsCtrl.text.trim().isNotEmpty)
+              if (mapsCtrl.text.trim().isNotEmpty) {
                 payload['mapsUrl'] = mapsCtrl.text.trim();
+              }
 
               // type-specific
               if (type == 'wisata') {
@@ -613,7 +677,7 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       DropdownButtonFormField<String>(
-                        value: type,
+                        initialValue: type,
                         items: const [
                           DropdownMenuItem(
                             value: 'wisata',
@@ -636,7 +700,7 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
 
                       if (type == 'wisata') ...[
                         DropdownButtonFormField<String>(
-                          value: category,
+                          initialValue: category,
                           items: wisataCategories
                               .map(
                                 (c) =>
@@ -843,6 +907,19 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
                       ),
                       const SizedBox(height: 8),
 
+                      // NEW: Checkbox to mark featured
+                      CheckboxListTile(
+                        value: isFeatured,
+                        onChanged: (v) =>
+                            setStateDialog(() => isFeatured = v ?? false),
+                        title: const Text(
+                          'Tandai sebagai Unggulan',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        controlAffinity: ListTileControlAffinity.leading,
+                      ),
+                      const SizedBox(height: 8),
+
                       const Text(
                         'Sosial Media / Link (opsional)',
                         style: TextStyle(fontWeight: FontWeight.w600),
@@ -1030,13 +1107,16 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
                   .orderBy('createdAt', descending: true)
                   .snapshots(),
               builder: (context, snap) {
-                if (snap.hasError)
+                if (snap.hasError) {
                   return Center(child: Text('Error: ${snap.error}'));
-                if (snap.connectionState == ConnectionState.waiting)
+                }
+                if (snap.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
+                }
                 final docs = snap.data?.docs ?? [];
-                if (docs.isEmpty)
+                if (docs.isEmpty) {
                   return const Center(child: Text('Belum ada users.'));
+                }
                 return ListView.separated(
                   itemCount: docs.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 6),

@@ -271,7 +271,6 @@ class _ProfilPageState extends State<ProfilPage> {
                                     OutlinedButton(
                                       onPressed: () =>
                                           _showMessage('Ganti Kata Sandi'),
-                                      child: const Text('Ganti Kata Sandi'),
                                       style: OutlinedButton.styleFrom(
                                         side: BorderSide(
                                           color: Colors.white.withOpacity(0.6),
@@ -287,6 +286,7 @@ class _ProfilPageState extends State<ProfilPage> {
                                           vertical: 8,
                                         ),
                                       ),
+                                      child: const Text('Ganti Kata Sandi'),
                                     ),
                                   ],
                                 ),

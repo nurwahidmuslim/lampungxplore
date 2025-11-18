@@ -1,6 +1,7 @@
-// home_page.dart
+// lib/home_page.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -13,6 +14,21 @@ class _HomePageState extends State<HomePage> {
   static const double _maxWidth = 480;
   int _currentIndex = 0;
   final User? user = FirebaseAuth.instance.currentUser;
+
+  // filters for Top Destinasi
+  final List<String> _filters = ['All', 'Wisata', 'Kuliner', 'Penginapan'];
+  int _selectedFilterIndex = 0;
+
+  final List<Map<String, dynamic>> _categories = [
+    {'label': 'Alam', 'icon': Icons.park_outlined},
+    {'label': 'Religi', 'icon': Icons.account_balance_outlined},
+    {'label': 'Pantai', 'icon': Icons.beach_access_outlined},
+    {'label': 'Gunung', 'icon': Icons.filter_hdr_outlined},
+    {'label': 'Budaya', 'icon': Icons.museum_outlined},
+    {'label': 'Sejarah', 'icon': Icons.landscape_outlined},
+    {'label': 'Kuliner', 'icon': Icons.restaurant_outlined},
+    {'label': 'Penginapan', 'icon': Icons.hotel_outlined},
+  ];
 
   void _onTabTapped(int index) {
     if (_currentIndex == index) return;
@@ -72,230 +88,43 @@ class _HomePageState extends State<HomePage> {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: _maxWidth),
-            child: CustomScrollView(
-              slivers: [
-                // Sliver AppBar-like header with banner and search
-                SliverToBoxAdapter(
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      // Banner image
-                      SizedBox(
-                        height: 220,
-                        width: double.infinity,
-                        child: Image.asset(
-                          'assets/images/banner.jpg',
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              Container(color: Colors.blueGrey[700]),
+            child: Column(
+              children: [
+                // Top greeting (non-scrolling)
+                _topGreeting(),
+
+                // Scrollable content below
+                Expanded(
+                  child: CustomScrollView(
+                    slivers: [
+                      const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                      _posterEvent(),
+                      const SliverToBoxAdapter(child: SizedBox(height: 20)),
+
+                      _categoryGrid(),
+                      const SliverToBoxAdapter(child: SizedBox(height: 16)),
+
+                      // ===== TOP DESTINASI (gabungkan Unggulan + Rekomendasi) =====
+                      SliverToBoxAdapter(
+                        child: _sectionHeader(
+                          context,
+                          'Top Destinasi',
+                          onSeeAll: () {},
                         ),
                       ),
 
-                      // Dark overlay for contrast
-                      Container(
-                        height: 220,
-                        width: double.infinity,
-                        color: Colors.black.withOpacity(0.36),
-                      ),
+                      // filter row
+                      SliverToBoxAdapter(child: _filterRow()),
 
-                      // Top bar row
-                      Positioned(
-                        top: 14,
-                        left: 12,
-                        right: 12,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            IconButton(
-                              onPressed: () {},
-                              icon: const Icon(Icons.menu, color: Colors.white),
-                              tooltip: 'Menu',
-                            ),
-                            const Text(
-                              'LAMPUNG XPLORE',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.2,
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: () =>
-                                  Navigator.pushNamed(context, '/profil'),
-                              icon: const CircleAvatar(
-                                backgroundColor: Colors.white,
-                                child: Icon(
-                                  Icons.person,
-                                  color: Colors.black54,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      // destinations list (uses Firestore and client-side filter)
+                      SliverToBoxAdapter(child: _topDestinations()),
 
-                      // Search box overlapping bottom of banner
-                      Positioned(
-                        top: 140,
-                        left: 16,
-                        right: 16,
-                        child: Material(
-                          elevation: 6,
-                          borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            height: 52,
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.search, color: Colors.grey),
-                                const SizedBox(width: 10),
-                                const Expanded(
-                                  child: TextField(
-                                    decoration: InputDecoration.collapsed(
-                                      hintText:
-                                          'Cari tempat, kategori, atau lokasi',
-                                    ),
-                                  ),
-                                ),
-                                IconButton(
-                                  onPressed: () => ScaffoldMessenger.of(context)
-                                      .showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Filter belum diimplementasikan',
-                                          ),
-                                        ),
-                                      ),
-                                  icon: Icon(
-                                    Icons.filter_list,
-                                    color: Colors.grey[700],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
+                      const SliverToBoxAdapter(child: SizedBox(height: 20)),
+
+                      const SliverToBoxAdapter(child: SizedBox(height: 40)),
                     ],
                   ),
                 ),
-
-                // Spacer so next content doesn't overlap search
-                SliverToBoxAdapter(child: const SizedBox(height: 90)),
-
-                // Poster event
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Container(
-                      height: 100,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Center(
-                        child: Text(
-                          'Poster event',
-                          style: TextStyle(color: Colors.black54),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SliverToBoxAdapter(child: SizedBox(height: 20)),
-
-                // Categories horizontal
-                SliverToBoxAdapter(
-                  child: SizedBox(
-                    height: 86,
-                    child: ListView(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      scrollDirection: Axis.horizontal,
-                      children: [
-                        _categoryTile('Alam', Icons.park_outlined),
-                        _categoryTile('Religi', Icons.account_balance_outlined),
-                        _categoryTile('Pantai', Icons.beach_access_outlined),
-                        _categoryTile('Gunung', Icons.filter_hdr_outlined),
-                        _categoryTile('Kuliner', Icons.restaurant_outlined),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SliverToBoxAdapter(child: SizedBox(height: 16)),
-
-                // Section: Unggulan
-                SliverToBoxAdapter(
-                  child: _sectionHeader(context, 'Unggulan', onSeeAll: () {}),
-                ),
-                SliverToBoxAdapter(child: _horizontalDestinations()),
-
-                const SliverToBoxAdapter(child: SizedBox(height: 8)),
-
-                // Section: Terdekat
-                SliverToBoxAdapter(
-                  child: _sectionHeader(context, 'Terdekat', onSeeAll: () {}),
-                ),
-                SliverToBoxAdapter(child: _horizontalDestinations()),
-
-                const SliverToBoxAdapter(child: SizedBox(height: 8)),
-
-                // Section: Rekomendasi Kami
-                SliverToBoxAdapter(
-                  child: _sectionHeader(
-                    context,
-                    'Rekomendasi Kami',
-                    onSeeAll: () {},
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    child: Row(
-                      children: [
-                        _filterChip('All', true),
-                        const SizedBox(width: 8),
-                        _filterChip('Hotel', false),
-                        const SizedBox(width: 8),
-                        _filterChip('Religi', false),
-                        const SizedBox(width: 8),
-                        _filterChip('Kuliner', false),
-                        const SizedBox(width: 8),
-                        _filterChip('Pantai', false),
-                      ],
-                    ),
-                  ),
-                ),
-                SliverToBoxAdapter(child: _horizontalDestinations()),
-
-                const SliverToBoxAdapter(child: SizedBox(height: 20)),
-
-                // Footer / login info
-                if (user != null)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      child: Text(
-                        'Login sebagai: ${user!.email}',
-                        style: const TextStyle(color: Colors.black54),
-                      ),
-                    ),
-                  ),
-
-                const SliverToBoxAdapter(child: SizedBox(height: 40)),
               ],
             ),
           ),
@@ -304,27 +133,392 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _categoryTile(String label, IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 12),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.grey.shade200),
+  // ---------------------------------------------------------
+  //                     SECTIONS WIDGETS
+  // ---------------------------------------------------------
+
+  Widget _topGreeting() {
+    // If user logged in, try to read their display name from Firestore (collection: users, field: name)
+    if (user == null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.blue.shade600, Colors.blue.shade400],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: const BorderRadius.vertical(
+            bottom: Radius.circular(12),
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Selamat datang,',
+                    style: TextStyle(color: Colors.white.withOpacity(0.9)),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Tamu',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            child: Icon(icon, size: 26, color: Colors.blue.shade700),
+            const CircleAvatar(
+              backgroundColor: Colors.white24,
+              child: Icon(Icons.person, color: Colors.white),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // when user exists, stream the profile document to get 'name' field
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(user!.uid)
+          .snapshots(),
+      builder: (context, snap) {
+        String displayName = 'Tamu';
+        if (snap.hasData && snap.data!.exists) {
+          final Map<String, dynamic>? data =
+              snap.data!.data() as Map<String, dynamic>?;
+          final n = data?['name'] as String?;
+          if (n != null && n.trim().isNotEmpty) displayName = n.trim();
+        } else if (user!.displayName != null &&
+            user!.displayName!.trim().isNotEmpty) {
+          displayName = user!.displayName!;
+        }
+
+        // build a nicer greeting card
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.indigo.shade700, Colors.indigo.shade500],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: const BorderRadius.vertical(
+              bottom: Radius.circular(12),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 12, color: Colors.black54),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Hai, $displayName!',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Selamat menjelajah Lampung Xplore',
+                      style: TextStyle(color: Colors.white.withOpacity(0.9)),
+                    ),
+                  ],
+                ),
+              ),
+              // avatar with initials
+              CircleAvatar(
+                radius: 26,
+                backgroundColor: Colors.white24,
+                child: Text(
+                  displayName.isNotEmpty ? _initials(displayName) : 'T',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        );
+      },
+    );
+  }
+
+  String _initials(String name) {
+    final parts = name.trim().split(RegExp('\\s+'));
+    if (parts.isEmpty) return 'T';
+    if (parts.length == 1) return parts[0][0].toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+
+  Widget _posterEvent() {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Container(
+          height: 100,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade200,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Center(child: Text("Poster Event")),
+        ),
       ),
+    );
+  }
+
+  Widget _categoryGrid() {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Card(
+          color: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Center(
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 20,
+                runSpacing: 16,
+                children: _categories
+                    .map(
+                      (item) => SizedBox(
+                        width: 84,
+                        child: _categoryTile(item['label'], item['icon']),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _filterRow() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: List.generate(_filters.length, (index) {
+          final label = _filters[index];
+          final selected = index == _selectedFilterIndex;
+          return Row(
+            children: [
+              GestureDetector(
+                onTap: () => setState(() => _selectedFilterIndex = index),
+                child: _filterChip(label, selected),
+              ),
+              const SizedBox(width: 8),
+            ],
+          );
+        }),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------
+  //                      FIRESTORE — TOP DESTINASI
+  //  (Gabungan Unggulan + Rekomendasi — dengan filter di client)
+  // ---------------------------------------------------------
+
+  Widget _topDestinations() {
+    return SizedBox(
+      height: 260,
+      child: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('destinations')
+            .limit(50)
+            .snapshots(),
+        builder: (_, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(child: Text("Error: ${snapshot.error}"));
+          }
+
+          final docs = snapshot.data?.docs ?? [];
+
+          // client-side filter based on selected filter
+          final selectedFilter = _filters[_selectedFilterIndex];
+
+          // kelompok kategori yang dihitung sebagai "Wisata"
+          final wisataGroups = [
+            'Alam',
+            'Gunung',
+            'Pantai',
+            'Budaya',
+            'Religi',
+            'Sejarah',
+          ];
+
+          final filtered = docs.where((d) {
+            final data = d.data() as Map<String, dynamic>;
+            final String category = (data['category'] ?? data['type'] ?? '')
+                .toString();
+            final lower = category.toLowerCase();
+
+            if (selectedFilter == 'All') return true;
+
+            if (selectedFilter == 'Wisata') {
+              return wisataGroups.any((w) => lower.contains(w.toLowerCase()));
+            }
+
+            // other filters (Kuliner / Penginapan) — match kategori atau type
+            return lower.contains(selectedFilter.toLowerCase());
+          }).toList();
+
+          if (filtered.isEmpty) {
+            return const Center(child: Text("Belum ada destinasi"));
+          }
+
+          return ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: filtered.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (_, i) {
+              final data = filtered[i].data() as Map<String, dynamic>;
+
+              final String title = data['title'] ?? 'Tanpa Judul';
+              final String category = data['category'] ?? data['type'] ?? '-';
+              final List photos = (data['photos'] is List)
+                  ? data['photos']
+                  : [];
+
+              final img = photos.isNotEmpty ? photos[0] : null;
+
+              return _destinationCardFirestore(
+                title: title,
+                category: category,
+                imageUrl: img,
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------
+  //                  REUSABLE DESTINATION CARD (Firestore)
+  // ---------------------------------------------------------
+
+  Widget _destinationCardFirestore({
+    required String title,
+    required String category,
+    required String? imageUrl,
+  }) {
+    return SizedBox(
+      width: 190,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 6,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
+              ),
+              child: imageUrl != null
+                  ? Image.network(
+                      imageUrl,
+                      height: 130,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    )
+                  : Container(
+                      height: 130,
+                      color: Colors.grey.shade300,
+                      child: const Icon(Icons.image, size: 40),
+                    ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    category,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.blue,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------
+  //                      SMALL UI WIDGETS
+  // ---------------------------------------------------------
+
+  Widget _categoryTile(String label, IconData icon) {
+    return Column(
+      children: [
+        Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Icon(icon, size: 28, color: Colors.blue.shade700),
+        ),
+        const SizedBox(height: 6),
+        Text(label, style: const TextStyle(fontSize: 12)),
+      ],
     );
   }
 
@@ -345,8 +539,8 @@ class _HomePageState extends State<HomePage> {
           GestureDetector(
             onTap: onSeeAll,
             child: const Text(
-              'Lihat Semua',
-              style: TextStyle(color: Colors.blue, fontWeight: FontWeight.w600),
+              "Lihat Semua",
+              style: TextStyle(color: Colors.blue),
             ),
           ),
         ],
@@ -360,128 +554,12 @@ class _HomePageState extends State<HomePage> {
       decoration: BoxDecoration(
         color: selected ? Colors.blue.shade600 : Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: selected ? Colors.blue.shade600 : Colors.grey.shade300,
-        ),
       ),
       child: Text(
         label,
-        style: TextStyle(color: selected ? Colors.white : Colors.black54),
-      ),
-    );
-  }
-
-  Widget _horizontalDestinations() {
-    return SizedBox(
-      height: 250,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: 4,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (context, index) => _destinationCard(context, index),
-      ),
-    );
-  }
-
-  Widget _destinationCard(BuildContext context, int index) {
-    return SizedBox(
-      width: 190,
-      child: GestureDetector(
-        onTap: () {
-          // example: open detail
-          // Navigator.pushNamed(context, '/detail', arguments: {...});
-        },
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 6,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // image
-              ClipRRect(
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  topRight: Radius.circular(12),
-                ),
-                child: Image.asset(
-                  'assets/images/dest1.jpg',
-                  height: 130,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) =>
-                      Container(height: 130, color: Colors.grey.shade300),
-                ),
-              ),
-
-              Padding(
-                padding: const EdgeInsets.all(10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Hotel',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.blue,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            'Pantai Klara',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Icon(
-                          Icons.favorite_border,
-                          color: Colors.grey.shade600,
-                          size: 20,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.location_on_outlined,
-                          color: Colors.grey.shade600,
-                          size: 14,
-                        ),
-                        const SizedBox(width: 6),
-                        const Expanded(
-                          child: Text(
-                            'Pesawaran, Lampung',
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+        style: TextStyle(
+          color: selected ? Colors.white : Colors.black54,
+          fontSize: 13,
         ),
       ),
     );

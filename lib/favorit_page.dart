@@ -347,7 +347,6 @@ class _FavoritPageState extends State<FavoritPage> {
                     children: [
                       TextButton(
                         onPressed: onView,
-                        child: const Text('Lihat'),
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
@@ -359,6 +358,7 @@ class _FavoritPageState extends State<FavoritPage> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
+                        child: const Text('Lihat'),
                       ),
                       const SizedBox(width: 8),
                       IconButton(
@@ -405,10 +405,10 @@ class _FavoritPageState extends State<FavoritPage> {
               onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Mulai jelajah sekarang')),
               ),
-              child: const Text('Jelajah'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.teal[700],
               ),
+              child: const Text('Jelajah'),
             ),
           ],
         ),
