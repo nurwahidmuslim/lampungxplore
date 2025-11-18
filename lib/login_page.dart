@@ -1,3 +1,4 @@
+// login_page.dart
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -48,8 +49,30 @@ class _LoginPageState extends State<LoginPage>
   }
 
   Future<void> _saveLastRoute(String route) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('last_route', route);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('last_route', route);
+    } catch (_) {
+      // ignore prefs errors
+    }
+  }
+
+  /// Helper: ambil role user dari Firestore users/{uid}
+  Future<String?> _fetchRole(String uid) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+      if (!doc.exists) return null;
+      final data = doc.data();
+      if (data == null) return null;
+      final r = data['role'];
+      if (r is String) return r;
+      return null;
+    } catch (e) {
+      return null;
+    }
   }
 
   Future<void> _login() async {
@@ -57,31 +80,49 @@ class _LoginPageState extends State<LoginPage>
 
     setState(() => _loading = true);
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login berhasil! Selamat datang.')),
+      final user = credential.user;
+      if (user == null) {
+        // unlikely, tapi tangani
+        throw FirebaseAuthException(
+          code: 'NO_USER',
+          message: 'User tidak ditemukan.',
         );
+      }
 
-        // Simpan route terakhir
+      // Ambil role dari Firestore (bisa null)
+      final role = await _fetchRole(user.uid);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Login berhasil! Selamat datang.')),
+      );
+
+      // Simpan route terakhir & arahkan sesuai role
+      if (role == 'admin') {
+        await _saveLastRoute('/admin');
+        Navigator.pushReplacementNamed(context, '/admin');
+      } else {
         await _saveLastRoute('/home');
-
-        // Arahkan ke halaman utama
         Navigator.pushReplacementNamed(context, '/home');
       }
     } on FirebaseAuthException catch (e) {
       final message = e.message ?? 'Terjadi kesalahan saat login.';
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: $message')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $message')));
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Terjadi kesalahan tak terduga.')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Terjadi kesalahan tak terduga: $e')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -112,12 +153,18 @@ class _LoginPageState extends State<LoginPage>
       final userCredential = await FirebaseAuth.instance.signInWithCredential(
         credential,
       );
+      final user = userCredential.user;
+      if (user == null) {
+        throw FirebaseAuthException(
+          code: 'NO_USER',
+          message: 'User Google tidak ditemukan.',
+        );
+      }
 
-      // jika pengguna baru, simpan data ke Firestore
+      // jika pengguna baru, simpan data ke Firestore (default role: user)
       final additional = userCredential.additionalUserInfo;
       if (additional != null && additional.isNewUser) {
-        final user = userCredential.user;
-        if (user != null) {
+        try {
           await FirebaseFirestore.instance
               .collection('users')
               .doc(user.uid)
@@ -125,17 +172,26 @@ class _LoginPageState extends State<LoginPage>
                 'name': user.displayName ?? '',
                 'email': user.email ?? '',
                 'photoUrl': user.photoURL ?? '',
-                'role': 'user',
+                'role': 'user', // default
                 'createdAt': FieldValue.serverTimestamp(),
               });
+        } catch (_) {
+          // jika gagal tulis, tetap lanjut (role akan null/tergantung dokumen)
         }
       }
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login dengan Google berhasil!')),
-        );
+      // Ambil role (jika ada) dari Firestore
+      final role = await _fetchRole(user.uid);
 
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Login dengan Google berhasil!')),
+      );
+
+      if (role == 'admin') {
+        await _saveLastRoute('/admin');
+        Navigator.pushReplacementNamed(context, '/admin');
+      } else {
         await _saveLastRoute('/home');
         Navigator.pushReplacementNamed(context, '/home');
       }
@@ -346,7 +402,6 @@ class _LoginPageState extends State<LoginPage>
               const Spacer(),
               TextButton(
                 onPressed: () {
-                  // placeholder forgot password behavior
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text(
@@ -411,14 +466,14 @@ class _LoginPageState extends State<LoginPage>
 
           const SizedBox(height: 12),
 
-          // Google button (only social option now)
+          // Google button (disabled saat loading)
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _socialButton(
                 icon: Icons.g_mobiledata,
                 label: 'Login dengan Google',
-                onTap: _loading ? () {} : _signInWithGoogle,
+                onTap: _loading ? null : _signInWithGoogle,
               ),
             ],
           ),
@@ -453,7 +508,7 @@ class _LoginPageState extends State<LoginPage>
   Widget _socialButton({
     required IconData icon,
     required String label,
-    required VoidCallback onTap,
+    required VoidCallback? onTap,
   }) {
     return GestureDetector(
       onTap: onTap,
