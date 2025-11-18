@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -13,13 +13,11 @@ import 'package:http_parser/http_parser.dart';
 
 const List<String> wisataCategories = [
   'Alam',
+  'Gunung',
+  'Pantai',
+  'Budaya',
   'Religi',
   'Sejarah',
-  'Budaya',
-  'Pantai',
-  'Gunung',
-  'Air Terjun',
-  'Taman',
   'Lainnya',
 ];
 
@@ -59,9 +57,8 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
   }
 
   // ---------------- Cloudinary helper ----------------
-  /// Upload single XFile to Cloudinary (unsigned).
-  /// Returns map {'url': ..., 'public_id': ...} on success, otherwise null.
-  Future<Map<String, String>?> _uploadToCloudinary(XFile file) async {
+  /// Upload single XFile to Cloudinary (unsigned). Returns secure_url or null.
+  Future<String?> _uploadToCloudinary(XFile file) async {
     try {
       final uri = Uri.parse(
         'https://api.cloudinary.com/v1_1/$cloudName/image/upload',
@@ -97,12 +94,7 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final Map<String, dynamic> body = jsonDecode(response.body);
-        final secureUrl = body['secure_url'] as String?;
-        final publicId = body['public_id'] as String?;
-        if (secureUrl != null && publicId != null) {
-          return {'url': secureUrl, 'public_id': publicId};
-        }
-        return null;
+        return body['secure_url'] as String?;
       } else {
         // debug print
         if (kDebugMode) {
@@ -123,6 +115,8 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin — Lampung Xplore'),
+        centerTitle: false,
+        elevation: 2,
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
@@ -133,27 +127,83 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
         actions: [
           IconButton(
             onPressed: () => _showEditDestinationDialog(context),
-            icon: const Icon(Icons.add),
+            icon: const Icon(Icons.add_circle_outline),
             tooltip: 'Tambah destinasi',
+          ),
+          IconButton(
+            onPressed: _confirmSignOut,
+            icon: const Icon(Icons.logout),
+            tooltip: 'Logout',
           ),
         ],
       ),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: _maxWidth),
-          child: TabBarView(
-            controller: _tabController,
-            children: [_buildDestinationsTab(), _buildUsersTab()],
+          child: Card(
+            margin: const EdgeInsets.all(12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: TabBarView(
+                controller: _tabController,
+                children: [_buildDestinationsTab(), _buildUsersTab()],
+              ),
+            ),
           ),
         ),
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showEditDestinationDialog(context),
+        label: const Text('Tambah'),
+        icon: const Icon(Icons.add),
+      ),
     );
+  }
+
+  Future<void> _confirmSignOut() async {
+    final bool? ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Yakin ingin logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+
+    if (ok != true) return;
+
+    try {
+      await FirebaseAuth.instance.signOut();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Berhasil logout')));
+      // OPTIONAL: navigate to your login route. Uncomment and adjust if you have a '/login' route.
+      // Navigator.of(context).pushNamedAndRemoveUntil('/login', (r) => false);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Gagal logout: $e')));
+    }
   }
 
   // ---------------- Destinations ----------------
   Widget _buildDestinationsTab() {
     return Padding(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(6),
       child: StreamBuilder<QuerySnapshot>(
         stream: _destRef.orderBy('createdAt', descending: true).snapshots(),
         builder: (context, snap) {
@@ -191,39 +241,31 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
                 data['restaurantName'] ??
                 (data['address']?['street'] ?? ''))
             .toString();
-
-    // Normalize photos: support old List<String> and new List<Map>
-    final rawPhotos = (data['photos'] as List<dynamic>?) ?? [];
-    String? firstPhotoUrl;
-    final List<Map<String, String>> photos = [];
-    for (final p in rawPhotos) {
-      if (p is String) {
-        photos.add({'url': p, 'public_id': ''});
-      } else if (p is Map) {
-        photos.add({
-          'url': (p['url'] ?? '')?.toString() ?? '',
-          'public_id': (p['public_id'] ?? '')?.toString() ?? '',
-        });
-      }
-    }
-    if (photos.isNotEmpty) firstPhotoUrl = photos.first['url'];
+    final List<String> photos =
+        (data['photos'] as List<dynamic>?)?.cast<String>() ?? [];
 
     return Card(
+      elevation: 1.5,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: ListTile(
-        leading: firstPhotoUrl == null || firstPhotoUrl.isEmpty
-            ? const Icon(Icons.image_not_supported, size: 44)
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        leading: photos.isEmpty
+            ? CircleAvatar(radius: 28, child: Icon(Icons.image_not_supported))
             : ClipRRect(
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(8),
                 child: Image.network(
-                  firstPhotoUrl,
+                  photos.first,
                   width: 84,
                   height: 64,
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => const Icon(Icons.broken_image),
                 ),
               ),
-        title: Text(title),
-        subtitle: Text('$type • $subtitle'),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4.0),
+          child: Text('$type • $subtitle', overflow: TextOverflow.ellipsis),
+        ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -250,7 +292,7 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
     BuildContext context,
     String id,
     String title,
-    List<Map<String, String>> photos,
+    List<String> photos,
   ) async {
     final bool? ok = await showDialog<bool>(
       context: context,
@@ -273,45 +315,19 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
     if (ok != true) return;
 
     try {
-      // Panggil Cloud Function yang akan menghapus asset Cloudinary dan dokumen Firestore
-      final functions = FirebaseFunctions.instance;
-      // Nama function: deleteDestinationAndImages (lihat functions/index.js)
-      final callable = functions.httpsCallable('deleteDestinationAndImages');
-      final res = await callable.call(<String, dynamic>{'docId': id});
-      final data = res.data;
+      // Karena foto di Cloudinary (bukan Firebase Storage),
+      // kita hanya hapus dokumen Firestore. (Jika mau hapus file di Cloudinary
+      // harus panggil API delete dengan authentication; biasanya tidak dilakukan di client.)
+      await _destRef.doc(id).delete();
       if (!mounted) return;
-
-      // result handling: tampilkan ringkasan
-      if (data != null && data['ok'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Destinasi dan gambar berhasil dihapus'),
-          ),
-        );
-      } else {
-        // jika function gagal, masih coba hapus dokumen lokal saja
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Hapus sebagian/gagal: ${data ?? 'unknown'}')),
-        );
-      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Destinasi dihapus')));
     } catch (e) {
-      // fallback: jika Cloud Function gagal, coba hapus dokumen Firestore saja (tanpa menghapus gambar)
-      try {
-        await _destRef.doc(id).delete();
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Dokumen dihapus (gambar mungkin tersisa di Cloudinary)',
-            ),
-          ),
-        );
-      } catch (e2) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Gagal hapus: $e | $e2')));
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Gagal hapus: $e')));
     }
   }
 
@@ -404,21 +420,10 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
     }
 
     // photos: existing urls and new picked images
-    // Normalize existing photos into List<Map<String,String>>
-    List<Map<String, String>> existingPhotos = [];
+    List<String> existingPhotos = [];
     if (existing != null && existing['photos'] is List) {
       try {
-        final raw = existing['photos'] as List;
-        for (final p in raw) {
-          if (p is String) {
-            existingPhotos.add({'url': p, 'public_id': ''});
-          } else if (p is Map) {
-            existingPhotos.add({
-              'url': (p['url'] ?? '')?.toString() ?? '',
-              'public_id': (p['public_id'] ?? '')?.toString() ?? '',
-            });
-          }
-        }
+        existingPhotos = (existing['photos'] as List).cast<String>();
       } catch (_) {
         existingPhotos = [];
       }
@@ -542,16 +547,17 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
                 // create doc id if new
                 String docRefId = docId ?? _destRef.doc().id;
 
-                // upload new images to Cloudinary (returns list of map url+public_id)
-                final List<Map<String, String>> newPhotos = [];
+                // upload new images to Cloudinary
+                final List<String> newUrls = [];
                 for (var i = 0; i < pickedFiles.length; i++) {
                   final XFile f = pickedFiles[i];
-                  final uploaded = await _uploadToCloudinary(f);
-                  if (uploaded != null) newPhotos.add(uploaded);
+                  // upload
+                  final url = await _uploadToCloudinary(f);
+                  if (url != null) newUrls.add(url);
                 }
 
-                // merge photos (existingPhotos already normalized to List<Map<String,String>>)
-                final photosFinal = [...existingPhotos, ...newPhotos];
+                // merge photos
+                final photosFinal = [...existingPhotos, ...newUrls];
                 payload['photos'] = photosFinal;
 
                 if (docId != null) {
@@ -601,7 +607,7 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
                 docId == null ? 'Tambah Destinasi' : 'Edit Destinasi',
               ),
               content: SizedBox(
-                width: double.maxFinite,
+                width: MediaQuery.of(context).size.width * 0.85,
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -898,7 +904,7 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
                             Stack(
                               children: [
                                 Image.network(
-                                  existingPhotos[ei]['url'] ?? '',
+                                  existingPhotos[ei],
                                   width: 100,
                                   height: 80,
                                   fit: BoxFit.cover,
@@ -1042,13 +1048,19 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
                     final role = data['role'] ?? 'user';
                     final photo = data['photoUrl'] as String?;
                     return Card(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                       child: ListTile(
                         leading: photo == null || photo.isEmpty
                             ? const CircleAvatar(child: Icon(Icons.person))
                             : CircleAvatar(
                                 backgroundImage: NetworkImage(photo),
                               ),
-                        title: Text(name),
+                        title: Text(
+                          name,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
                         subtitle: Text('$email • role: $role'),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,

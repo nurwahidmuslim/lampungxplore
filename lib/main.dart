@@ -1,10 +1,6 @@
 // lib/main.dart
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 
@@ -20,37 +16,13 @@ import 'profil_page.dart';
 import 'admin_page.dart';
 import 'widgets/admin_gate.dart';
 
-Future<void> connectToEmulators() async {
-  // Hanya sambungkan ke emulator ketika running di web (localhost).
-  if (!kIsWeb) return;
-
-  const host = 'localhost';
-  const firestorePort = 8080;
-  const authPort = 9099;
-  const functionsPort = 5001;
-
-  // Firestore emulator
-  FirebaseFirestore.instance.useFirestoreEmulator(host, firestorePort);
-
-  // Auth emulator
-  FirebaseAuth.instance.useAuthEmulator(host, authPort);
-
-  // Functions emulator
-  FirebaseFunctions.instance.useFunctionsEmulator(host, functionsPort);
-
-  // optional debug log
-  // ignore: avoid_print
-  print('Connected to Firebase emulators on $host');
-}
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Inisialisasi Firebase (PRODUCTION)
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // Jika web (localhost), hubungkan ke emulator sebelum runApp.
-  await connectToEmulators();
-
-  // Ambil halaman terakhir (default ke /login)
+  // Ambil halaman terakhir yang dibuka (default ke /login)
   final prefs = await SharedPreferences.getInstance();
   final lastRoute = prefs.getString('last_route') ?? '/login';
 
@@ -81,10 +53,10 @@ class LampungXploreApp extends StatelessWidget {
         '/admin': (context) => const AdminGate(adminPage: AdminPage()),
       },
 
-      // simpan route terakhir setiap kali pindah halaman
+      // Simpan route terakhir setiap halaman berubah
       navigatorObservers: [RouteObserverWithSave()],
 
-      // Bungkus semua halaman dengan ResponsiveWrapper
+      // Wrapper agar layout Web tetap seperti Mobile (maks 480px)
       builder: (context, child) {
         return ResponsiveWrapper(child: child!);
       },
@@ -92,7 +64,7 @@ class LampungXploreApp extends StatelessWidget {
   }
 }
 
-/// Observer untuk simpan route terakhir
+/// Observer — menyimpan route terakhir ke SharedPreferences
 class RouteObserverWithSave extends NavigatorObserver {
   @override
   void didPush(Route route, Route? previousRoute) {
@@ -114,7 +86,7 @@ class RouteObserverWithSave extends NavigatorObserver {
   }
 }
 
-/// Wrapper supaya tampilan web tetap seperti mobile (max 480px)
+/// Agar tampilan web dibuat seperti mode mobile (max width 480px)
 class ResponsiveWrapper extends StatelessWidget {
   final Widget child;
   const ResponsiveWrapper({super.key, required this.child});
