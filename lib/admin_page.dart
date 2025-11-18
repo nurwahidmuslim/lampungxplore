@@ -18,6 +18,7 @@ const List<String> wisataCategories = [
   'Budaya',
   'Religi',
   'Sejarah',
+  'Lainnya',
 ];
 
 /// GANTI dengan credential Cloudinary-mu:
@@ -503,7 +504,7 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
           builder: (context, setStateDialog) {
             Future<void> pickMultiImages() async {
               try {
-                final List<XFile> files = await _picker.pickMultiImage(
+                final List<XFile>? files = await _picker.pickMultiImage(
                   imageQuality: 80,
                 );
                 if (files != null && files.isNotEmpty) {
@@ -556,9 +557,8 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
                 'isFeatured': isFeatured, // NEW: save isFeatured
               };
 
-              if (mapsCtrl.text.trim().isNotEmpty) {
+              if (mapsCtrl.text.trim().isNotEmpty)
                 payload['mapsUrl'] = mapsCtrl.text.trim();
-              }
 
               // type-specific
               if (type == 'wisata') {
@@ -677,7 +677,7 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       DropdownButtonFormField<String>(
-                        initialValue: type,
+                        value: type,
                         items: const [
                           DropdownMenuItem(
                             value: 'wisata',
@@ -700,7 +700,7 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
 
                       if (type == 'wisata') ...[
                         DropdownButtonFormField<String>(
-                          initialValue: category,
+                          value: category,
                           items: wisataCategories
                               .map(
                                 (c) =>
@@ -1107,16 +1107,13 @@ class _AdminPageState extends State<AdminPage> with TickerProviderStateMixin {
                   .orderBy('createdAt', descending: true)
                   .snapshots(),
               builder: (context, snap) {
-                if (snap.hasError) {
+                if (snap.hasError)
                   return Center(child: Text('Error: ${snap.error}'));
-                }
-                if (snap.connectionState == ConnectionState.waiting) {
+                if (snap.connectionState == ConnectionState.waiting)
                   return const Center(child: CircularProgressIndicator());
-                }
                 final docs = snap.data?.docs ?? [];
-                if (docs.isEmpty) {
+                if (docs.isEmpty)
                   return const Center(child: Text('Belum ada users.'));
-                }
                 return ListView.separated(
                   itemCount: docs.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 6),
