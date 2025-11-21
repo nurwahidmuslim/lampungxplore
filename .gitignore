@@ -43,3 +43,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+node_modules/
+.env
+server.js
+serviceAccountKey.json
+npm-debug.log

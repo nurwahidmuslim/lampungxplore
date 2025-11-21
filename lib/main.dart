@@ -9,18 +9,28 @@ import 'login_page.dart';
 import 'register_page.dart';
 import 'home_page.dart';
 import 'favorit_page.dart';
-import 'berita_page.dart';
+// berita_page.dart dihapus karena kita mengganti tab Berita menjadi Upload iklan
 import 'profil_page.dart';
+
+// fitur upload iklan (ganti tab Berita)
+import 'ad_create_page.dart';
 
 // Admin & guard
 import 'admin_page.dart';
 import 'widgets/admin_gate.dart';
 
+// Category page (generik untuk semua kategori)
+import 'category_page.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inisialisasi Firebase (PRODUCTION)
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Inisialisasi Firebase dengan pengecekan agar tidak terjadi duplicate-app
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
 
   // Ambil halaman terakhir yang dibuka (default ke /login)
   final prefs = await SharedPreferences.getInstance();
@@ -44,21 +54,65 @@ class LampungXploreApp extends StatelessWidget {
       ),
       initialRoute: initialRoute,
       routes: {
+        // core pages
         '/login': (context) => const LoginPage(),
         '/register': (context) => const RegisterPage(),
         '/home': (context) => const HomePage(),
         '/favorit': (context) => const FavoritPage(),
-        '/berita': (context) => const BeritaPage(),
+        // '/berita' dihapus — fitur Berita digantikan Upload iklan
+        '/upload': (context) => const AdCreatePage(),
         '/profil': (context) => const ProfilPage(),
         '/admin': (context) => const AdminGate(adminPage: AdminPage()),
+
+        // kategori routes — semua mengarah ke CategoryPage generik
+        '/category/alam': (context) => const CategoryPage(
+          categoryKey: 'alam',
+          title: 'Alam',
+          icon: Icons.park_outlined,
+        ),
+        '/category/religi': (context) => const CategoryPage(
+          categoryKey: 'religi',
+          title: 'Religi',
+          icon: Icons.account_balance_outlined,
+        ),
+        '/category/pantai': (context) => const CategoryPage(
+          categoryKey: 'pantai',
+          title: 'Pantai',
+          icon: Icons.beach_access_outlined,
+        ),
+        '/category/gunung': (context) => const CategoryPage(
+          categoryKey: 'gunung',
+          title: 'Gunung',
+          icon: Icons.filter_hdr_outlined,
+        ),
+        '/category/budaya': (context) => const CategoryPage(
+          categoryKey: 'budaya',
+          title: 'Budaya',
+          icon: Icons.museum_outlined,
+        ),
+        '/category/sejarah': (context) => const CategoryPage(
+          categoryKey: 'sejarah',
+          title: 'Sejarah',
+          icon: Icons.landscape_outlined,
+        ),
+        '/category/kuliner': (context) => const CategoryPage(
+          categoryKey: 'kuliner',
+          title: 'Kuliner',
+          icon: Icons.restaurant_outlined,
+        ),
+        '/category/penginapan': (context) => const CategoryPage(
+          categoryKey: 'penginapan',
+          title: 'Penginapan',
+          icon: Icons.hotel_outlined,
+        ),
       },
 
-      // Simpan route terakhir setiap halaman berubah
+      // Simpan route terakhir
       navigatorObservers: [RouteObserverWithSave()],
 
-      // Wrapper agar layout Web tetap seperti Mobile (maks 480px)
+      // Wrapper agar layout Web tetap seperti Mobile
       builder: (context, child) {
-        return ResponsiveWrapper(child: child!);
+        return ResponsiveWrapper(child: child);
       },
     );
   }
@@ -79,20 +133,28 @@ class RouteObserverWithSave extends NavigatorObserver {
   }
 
   void _save(Route route) async {
-    if (route.settings.name != null) {
+    // hanya simpan jika route memiliki nama (named route)
+    final name = route.settings.name;
+    if (name == null) return;
+    try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('last_route', route.settings.name!);
+      await prefs.setString('last_route', name);
+    } catch (_) {
+      // ignore storage errors (tidak mengganggu UX)
     }
   }
 }
 
 /// Agar tampilan web dibuat seperti mode mobile (max width 480px)
 class ResponsiveWrapper extends StatelessWidget {
-  final Widget child;
+  final Widget? child;
   const ResponsiveWrapper({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
+    // jika child null (sangat jarang), tampilkan kosong agar tidak crash
+    if (child == null) return const SizedBox.shrink();
+
     return Scaffold(
       backgroundColor: Colors.grey[200],
       body: Center(
