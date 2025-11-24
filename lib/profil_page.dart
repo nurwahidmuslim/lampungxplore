@@ -924,7 +924,7 @@ class _ProfilPageState extends State<ProfilPage> {
         currentIndex: _currentIndex,
         onTap: _onTabTapped,
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.teal[700],
+        selectedItemColor: Colors.blue.shade400,
         unselectedItemColor: Colors.grey[600],
         showUnselectedLabels: true,
         items: const [

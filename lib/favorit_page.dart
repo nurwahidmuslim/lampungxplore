@@ -45,7 +45,7 @@ class _FavoritPageState extends State<FavoritPage> {
         Navigator.pushReplacementNamed(context, '/home');
         break;
       case 1:
-        Navigator.pushReplacementNamed(context, '/berita');
+        Navigator.pushReplacementNamed(context, '/upload'); // DIPERBAIKI: Mengganti /berita menjadi /upload
         break;
       case 2:
         break; // already on Favorit
@@ -70,7 +70,7 @@ class _FavoritPageState extends State<FavoritPage> {
         currentIndex: _currentIndex,
         onTap: _onTabTapped,
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.teal[700],
+        selectedItemColor: Colors.blue.shade400,
         unselectedItemColor: Colors.grey[600],
         items: const [
           BottomNavigationBarItem(
@@ -79,9 +79,9 @@ class _FavoritPageState extends State<FavoritPage> {
             label: "Beranda",
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.article_outlined),
-            activeIcon: Icon(Icons.article),
-            label: "Berita",
+            icon: Icon(Icons.cloud_upload_outlined), // DIPERBAIKI: Menggunakan ikon Upload
+            activeIcon: Icon(Icons.cloud_upload), // DIPERBAIKI: Menggunakan ikon Upload
+            label: "Upload", // DIPERBAIKI: Mengganti "Berita" menjadi "Upload"
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.favorite_border),
@@ -135,6 +135,7 @@ class _FavoritPageState extends State<FavoritPage> {
                           ),
                         ),
                       ),
+                      // DIPERBAIKI: Menggunakan Colors.teal[700] untuk konsistensi tema
                       Icon(Icons.favorite, color: Colors.teal[700], size: 28),
                       const SizedBox(width: 12),
                     ],
@@ -162,13 +163,15 @@ class _FavoritPageState extends State<FavoritPage> {
                 const SizedBox(height: 14),
 
                 // Header Card
+                // LOKASI PERUBAHAN WARNA HEADER CARD
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
+                      // DIPERBAIKI: Menggunakan gradient yang sama dengan ProfilPage Header
                       gradient: LinearGradient(
-                        colors: [Colors.teal.shade600, Colors.teal.shade400],
+                        colors: [Colors.teal.shade600!, Colors.teal.shade400!], 
                       ),
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
@@ -854,8 +857,8 @@ class _DetailFavoriteButtonState extends State<_DetailFavoriteButton> {
           'image':
               (widget.data['photos'] is List &&
                   widget.data['photos'].isNotEmpty)
-              ? widget.data['photos'][0]
-              : '',
+                  ? widget.data['photos'][0]
+                  : '',
           'location': widget.data['location'] ?? '-',
           'destId': widget.id, // save link to original destination doc
           'timestamp': FieldValue.serverTimestamp(),

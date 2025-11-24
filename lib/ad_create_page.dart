@@ -1058,7 +1058,7 @@ class _AdCreatePageState extends State<AdCreatePage> {
           }
         },
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.green,
+        selectedItemColor: Colors.blue.shade400,
         unselectedItemColor: Colors.grey,
         items: const [
           BottomNavigationBarItem(
