@@ -425,7 +425,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.teal,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 20),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(15),
                   ),
@@ -433,7 +433,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ),
                 child: _isLoading
                     ? const SizedBox(
-                        width: 20,
+                        width: 25,
                         height: 20,
                         child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                       )
@@ -589,7 +589,7 @@ class AboutAppScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tentang Aplikasi'),
+        title: const Text('Tentang Wisata Lampung Xplore'), // Judul diubah
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
@@ -600,14 +600,23 @@ class AboutAppScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.explore_outlined,
-              size: 80,
-              color: Colors.teal,
+            // Logo Aplikasi (Mengganti Icon dengan Image.asset)
+            Image.asset(
+              'assets/images.jpg', // Ganti path sesuai struktur aset Anda
+              width: 120, 
+              height: 120,
+              errorBuilder: (context, error, stackTrace) {
+                // Fallback jika gambar asset tidak ditemukan
+                return Icon(
+                  Icons.explore_outlined,
+                  size: 80,
+                  color: Colors.teal,
+                );
+              },
             ),
             const SizedBox(height: 10),
             Text(
-              'Eksplorasi Lingkungan Hijau',
+              'Wisata Lampung Xplore', // Nama aplikasi diubah
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -621,11 +630,12 @@ class AboutAppScreen extends StatelessWidget {
             ),
             const SizedBox(height: 30),
             
-            // Deskripsi
+            // Deskripsi diubah
             const Text(
-              'Aplikasi ini adalah platform komunitas yang bertujuan untuk mempromosikan '
-              'kesadaran lingkungan. Pengguna dapat berbagi lokasi daur ulang, mengunggah '
-              'berita lingkungan, dan terhubung dengan inisiatif hijau lainnya.',
+              'Wisata Lampung Xplore adalah panduan interaktif Anda untuk menjelajahi '
+              'keindahan tersembunyi dan destinasi populer di Lampung. Temukan tempat wisata '
+              'alam, budaya, kuliner, dan aktivitas menarik lainnya. Aplikasi ini membantu Anda '
+              'merencanakan perjalanan, melihat ulasan, dan berbagi pengalaman wisata Anda.',
               textAlign: TextAlign.justify,
               style: TextStyle(fontSize: 16, height: 1.5),
             ),
@@ -636,7 +646,7 @@ class AboutAppScreen extends StatelessWidget {
             const Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Info Lebih Lanjut',
+                'Informasi & Dukungan', // Judul diubah
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.teal),
               ),
             ),
@@ -646,7 +656,7 @@ class AboutAppScreen extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.email, color: Colors.teal),
               title: const Text('Email Dukungan'),
-              subtitle: const Text('support@eksplorasihijau.com'),
+              subtitle: const Text('support@wisatalampungxplore.com'), // Email diubah
               onTap: () {}, // Tambahkan logika launch URL mailto: jika diperlukan
             ),
             
@@ -654,14 +664,14 @@ class AboutAppScreen extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.code, color: Colors.teal),
               title: const Text('Pengembang'),
-              subtitle: const Text('Tim Developer Hijau'),
+              subtitle: const Text('Tim Xplore Lampung'), // Pengembang diubah
               onTap: () {},
             ),
 
             const SizedBox(height: 50),
-            const Text(
-              '© 2024 Eksplorasi Lingkungan Hijau',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+            Text(
+              '© 2024 Wisata Lampung Xplore', // Hak cipta diubah
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             ),
           ],
         ),
@@ -774,8 +784,73 @@ class _ProfilPageState extends State<ProfilPage> {
   void _showMessage(String text) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
+  
+  // BARU: Method untuk menghapus akun pengguna (dipanggil setelah konfirmasi)
+  Future<void> _deleteAccount() async {
+    if (_user == null) return;
+    
+    // 1. Hapus data pengguna di Firestore terlebih dahulu
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(_user!.uid).delete();
+      _showMessage('Data pengguna di Firestore berhasil dihapus.');
+    } catch (e) {
+      _showMessage('Gagal menghapus data di Firestore: $e');
+    }
 
-  // MENGHAPUS FUNGSI _showAboutAppDialog ASLI
+    // 2. Hapus akun di Firebase Authentication
+    try {
+      // Peringatan: Operasi ini membutuhkan re-authentication baru-baru ini.
+      await _user!.delete(); 
+
+      if (!mounted) return;
+      _showMessage('Akun berhasil dihapus. Sampai jumpa!');
+      
+      // Navigasi ke halaman login setelah berhasil dihapus
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (r) => false);
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'requires-recent-login') {
+        _showMessage('Gagal menghapus akun: Silakan logout dan login kembali untuk mengonfirmasi tindakan.');
+      } else {
+        _showMessage('Gagal menghapus akun: ${e.message}');
+      }
+    } catch (e) {
+      if (mounted) {
+        _showMessage('Terjadi kesalahan saat menghapus akun: $e');
+      }
+    }
+  }
+
+  // BARU: Method untuk menampilkan dialog konfirmasi penghapusan akun
+  void _showConfirmDeleteAccountDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Konfirmasi Hapus Akun', style: TextStyle(color: Colors.red)),
+        content: const Text(
+          'Apakah Anda yakin ingin menghapus akun Anda secara permanen? Tindakan ini tidak dapat dibatalkan.',
+          style: TextStyle(fontSize: 15),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _deleteAccount();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Ya, Hapus Permanen'),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -832,7 +907,7 @@ class _ProfilPageState extends State<ProfilPage> {
       }
     };
     
-    // BARU: Fungsi navigasi ke Tentang Aplikasi (Full Screen)
+    // Fungsi navigasi ke Tentang Aplikasi (Full Screen)
     final Function() navigateToAboutApp = () {
       Navigator.push(
         context,
@@ -1101,7 +1176,7 @@ class _ProfilPageState extends State<ProfilPage> {
                               ),
                               title: const Text('Hapus Akun'),
                               trailing: const Icon(Icons.chevron_right),
-                              onTap: () => _showMessage('Hapus Akun'),
+                              onTap: _showConfirmDeleteAccountDialog, // <-- Memanggil dialog konfirmasi
                             ),
                           ],
                         ),
@@ -1115,7 +1190,7 @@ class _ProfilPageState extends State<ProfilPage> {
                               leading: const Icon(Icons.info_outline),
                               title: const Text('Tentang Aplikasi'),
                               trailing: const Icon(Icons.chevron_right),
-                              onTap: navigateToAboutApp, // DIUBAH: Navigasi ke layar Tentang Aplikasi
+                              onTap: navigateToAboutApp, // Navigasi ke layar Tentang Aplikasi
                             ),
                             const Divider(height: 1),
                             ListTile(
