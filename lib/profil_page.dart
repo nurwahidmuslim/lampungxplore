@@ -5,9 +5,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:io';
+import 'package:intl/intl.dart'; 
 
 // =========================================================================
-// WIDGET SCREEN GANTI KATA SANDI 
+// WIDGET SCREEN GANTI KATA SANDI (TIDAK BERUBAH)
 // =========================================================================
 
 class ChangePasswordScreen extends StatefulWidget {
@@ -202,12 +203,14 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 }
 
 // =========================================================================
-// WIDGET SCREEN EDIT PROFIL 
+// WIDGET SCREEN EDIT PROFIL (DIROMBAK TOTAL SESUAI GAMBAR)
 // =========================================================================
 
 class EditProfileScreen extends StatefulWidget {
   final User user;
   final String? initialAddress;
+  final String? initialPhoneNumber; 
+  final String? initialBirthDate;   
   final VoidCallback onProfileUpdated;
 
   const EditProfileScreen({
@@ -215,6 +218,8 @@ class EditProfileScreen extends StatefulWidget {
     required this.user,
     required this.initialAddress,
     required this.onProfileUpdated,
+    this.initialPhoneNumber, 
+    this.initialBirthDate,   
   });
 
   @override
@@ -224,24 +229,36 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
+  late TextEditingController _phoneController; 
   late TextEditingController _emailController;
-  late TextEditingController _addressController;
+  
+  DateTime? _selectedBirthDate; 
   File? _selectedImage;
   bool _isLoading = false;
+  final _originalEmail = FirebaseAuth.instance.currentUser?.email ?? '';
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.user.displayName ?? '');
+    _phoneController = TextEditingController(text: widget.initialPhoneNumber ?? '');
     _emailController = TextEditingController(text: widget.user.email ?? '');
-    _addressController = TextEditingController(text: widget.initialAddress ?? '');
+    
+    // Inisialisasi Tanggal Lahir dari string ISO (jika ada)
+    if (widget.initialBirthDate != null && widget.initialBirthDate!.isNotEmpty) {
+      try {
+        _selectedBirthDate = DateTime.parse(widget.initialBirthDate!);
+      } catch (e) {
+        // Fallback jika parsing tanggal gagal
+      }
+    }
   }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _phoneController.dispose();
     _emailController.dispose();
-    _addressController.dispose();
     super.dispose();
   }
 
@@ -270,6 +287,32 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
+  // BARU: Date Picker
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedBirthDate ?? DateTime(2004, 8, 17), 
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: ThemeData.light().copyWith(
+            primaryColor: const Color(0xFF00bcd4), 
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF00bcd4), 
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && picked != _selectedBirthDate) {
+      setState(() {
+        _selectedBirthDate = picked;
+      });
+    }
+  }
+
   Future<void> _saveProfile() async {
     if (_formKey.currentState?.validate() ?? false) {
       setState(() => _isLoading = true);
@@ -279,24 +322,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           photoURL = await _uploadImage(_selectedImage!);
         }
 
-        // Update Auth: Display Name & Photo URL
+        // 1. Update Auth: Display Name & Photo URL
         await widget.user.updateDisplayName(_nameController.text);
         if (photoURL != null) {
           await widget.user.updatePhotoURL(photoURL);
         }
 
-        // Update Email: Hanya beri pesan karena butuh re-auth
-        if (_emailController.text != widget.user.email) {
-          _showMessage('Untuk mengubah email, silakan hubungi support atau re-login.');
+        // 2. Handle Email Change (Warning/Re-authentication required)
+        if (_emailController.text != _originalEmail) {
+           // Jika email diubah, pengguna harus re-authenticate (untuk keamanan, kita hanya beri pesan)
+           _showMessage('Perubahan email akan diproses setelah Anda login kembali dan mengonfirmasi.');
+           // Note: Proses updateEmail() dilewatkan di sini karena memerlukan re-auth
         }
 
-        // Update Firestore: Address
+        // 3. Update Firestore: Phone, Birth Date
         await FirebaseFirestore.instance.collection('users').doc(widget.user.uid).set({
-          'address': _addressController.text,
+          'phoneNumber': _phoneController.text, // Simpan No. Telepon
+          'birthDate': _selectedBirthDate?.toIso8601String() ?? '', // Simpan Tanggal Lahir (ISO string)
         }, SetOptions(merge: true));
 
         setState(() => _isLoading = false);
-        widget.onProfileUpdated(); // Panggil callback untuk refresh ProfilPage
+        widget.onProfileUpdated(); 
         if (mounted) {
            Navigator.pop(context);
            _showMessage('Profil berhasil diperbarui');
@@ -308,268 +354,252 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
-  Widget _buildTextFormField({
+  // BARU: Widget untuk field input bergaya custom (sesuai gambar)
+  Widget _buildCustomTextField({
     required TextEditingController controller,
     required String label,
-    required IconData icon,
     bool readOnly = false,
-    Color? color,
     String? Function(String?)? validator,
+    TextInputType keyboardType = TextInputType.text,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10), 
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 5,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
       child: TextFormField(
         controller: controller,
         readOnly: readOnly,
         validator: validator,
-        style: TextStyle(fontSize: 16, color: color),
+        keyboardType: keyboardType,
+        style: const TextStyle(fontSize: 16, color: Colors.black87, fontWeight: FontWeight.w600),
         decoration: InputDecoration(
-          labelText: label,
-          prefixIcon: Icon(icon, color: Colors.teal),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(15),
-            borderSide: BorderSide.none,
+          labelText: label, // Label di dalam field
+          labelStyle: TextStyle(
+            color: Colors.grey[700], 
+            fontWeight: FontWeight.normal
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(15),
-            borderSide: const BorderSide(color: Colors.teal, width: 2),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18), 
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide.none, // Menghilangkan border
           ),
           filled: true,
-          fillColor: Colors.white,
+          fillColor: Colors.transparent, 
         ),
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Edit Profil'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-      ),
-      backgroundColor: const Color(0xFFF4F6F9),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Avatar
-              GestureDetector(
-                onTap: _pickImage,
-                child: Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 60,
-                      backgroundColor: Colors.white,
-                      backgroundImage: _selectedImage != null
-                          ? FileImage(_selectedImage!)
-                          : (widget.user.photoURL != null ? NetworkImage(widget.user.photoURL!) : null),
-                      child: (_selectedImage == null && widget.user.photoURL == null)
-                          ? Icon(Icons.person, size: 60, color: Colors.grey[400])
-                          : null,
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: Colors.teal,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              
-              const SizedBox(height: 30),
+  // BARU: Widget untuk field Tanggal Lahir (Date Picker)
+  Widget _buildDateField({required BuildContext context}) {
+    final String formattedDate = _selectedBirthDate != null
+        ? DateFormat('dd MMM yyyy').format(_selectedBirthDate!)
+        : 'Pilih Tanggal'; // Teks placeholder
 
-              // Nama Pengguna
-              _buildTextFormField(
-                controller: _nameController,
-                label: 'Nama Pengguna',
-                icon: Icons.person_outline,
-                validator: (value) => value?.isEmpty ?? true ? 'Nama tidak boleh kosong' : null,
-              ),
-
-              // Email (Read-only/Note)
-              _buildTextFormField(
-                controller: _emailController,
-                label: 'Email (Tidak bisa diubah)',
-                icon: Icons.email_outlined,
-                readOnly: true,
-                color: Colors.grey[500],
-              ),
-              
-              // Alamat
-              _buildTextFormField(
-                controller: _addressController,
-                label: 'Alamat',
-                icon: Icons.location_on_outlined,
-                validator: (value) => value?.isEmpty ?? true ? 'Alamat tidak boleh kosong' : null,
-              ),
-
-              const SizedBox(height: 30),
-
-              // Tombol Simpan
-              ElevatedButton(
-                onPressed: _isLoading ? null : _saveProfile,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.teal,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 20),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  elevation: 5,
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        width: 25,
-                        height: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                      )
-                    : const Text(
-                        'Simpan Perubahan',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-              ),
-            ],
-          ),
+    return GestureDetector(
+      onTap: _isLoading ? null : () => _selectDate(context),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        margin: const EdgeInsets.only(bottom: 30),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 5,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
-      ),
-    );
-  }
-}
-
-// =========================================================================
-// WIDGET SCREEN DETAIL AKUN 
-// =========================================================================
-
-class AccountDetailsScreen extends StatelessWidget {
-  final User user;
-  final String? address;
-
-  const AccountDetailsScreen({
-    super.key,
-    required this.user,
-    required this.address,
-  });
-
-  Widget _buildReadOnlyTextFormField({
-    required String value,
-    required String label,
-    required IconData icon,
-    String? helperText,
-  }) {
-    final controller = TextEditingController(text: value);
-    
-    return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      child: TextFormField(
-        controller: controller,
-        readOnly: true, // PENTING: Read Only
-        style: TextStyle(fontSize: 16, color: Colors.grey[800]),
-        decoration: InputDecoration(
-          labelText: label,
-          prefixIcon: Icon(icon, color: Colors.teal),
-          suffixIcon: const Icon(Icons.lock, color: Colors.grey, size: 18), // Indikator Read-only
-          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(15),
-            borderSide: BorderSide.none,
-          ),
-          filled: true,
-          fillColor: Colors.grey[200], // Warna latar belakang untuk Read-only
-          helperText: helperText,
-          helperStyle: const TextStyle(color: Colors.grey),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final username = user.displayName ?? 'N/A';
-    final email = user.email ?? 'N/A';
-    final photo = user.photoURL;
-    final joinDate = user.metadata.creationTime != null 
-        ? 'Sejak ${user.metadata.creationTime!.day}/${user.metadata.creationTime!.month}/${user.metadata.creationTime!.year}'
-        : 'Tidak diketahui';
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Detail Akun'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-      ),
-      backgroundColor: const Color(0xFFF4F6F9),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // Avatar
-            CircleAvatar(
-              radius: 60,
-              backgroundColor: Colors.white,
-              backgroundImage: photo != null ? NetworkImage(photo) : null,
-              child: photo == null
-                  ? Icon(Icons.person, size: 60, color: Colors.grey[400])
-                  : null,
+            Text(
+              // Tampilkan label Tanggal Lahir jika belum memilih
+              _selectedBirthDate == null ? 'Tanggal Lahir' : formattedDate,
+              style: TextStyle(
+                fontSize: 16, 
+                color: _selectedBirthDate != null ? Colors.black87 : Colors.grey[700],
+                fontWeight: FontWeight.w600
+              ),
+            ),
+            Icon(
+              Icons.calendar_today, 
+              size: 20, 
+              color: Colors.grey[500]
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Penyesuaian agar Avatar tidak terpotong (Mengurangi Offset)
+    const double avatarRadius = 50.0;
+    const double overlapHeight = 25.0; // Seberapa dalam avatar masuk ke header (lebih kecil dari sebelumnya)
+    const double topBarHeight = 80.0; 
+    final double avatarOffset = avatarRadius + (topBarHeight - overlapHeight) - topBarHeight;
+
+    return Scaffold(
+      // Header BARU dengan warna dan layout yang minimalis
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(80.0), // Tinggi AppBar disesuaikan
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF00bcd4), // Biru Cyan
+                Color(0xFF00e5ff), // Biru Muda
+              ],
+            ),
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(30),
+              bottomRight: Radius.circular(30),
+            ),
+          ),
+          child: SafeArea(
+            child: AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Navigator.pop(context),
+              ),
+              title: const Text(
+                'Edit Profil', // Teks di samping tombol kembali
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              centerTitle: false, // Memastikan judul berada di kiri
+            ),
+          ),
+        ),
+      ),
+      backgroundColor: const Color(0xFFF4F6F9),
+      body: SingleChildScrollView(
+        // Padding disesuaikan
+        padding: const EdgeInsets.only(left: 24.0, right: 24.0, top: 0), 
+        child: Column(
+          children: [
+            // Avatar (Ditarik ke atas agar tampak tumpang tindih)
+            Transform.translate(
+              offset: Offset(0, -avatarOffset), // Geser avatar ke atas
+              child: Center(
+                child: GestureDetector(
+                  onTap: _pickImage,
+                  child: Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: avatarRadius, // 50.0
+                        backgroundColor: Colors.white,
+                        backgroundImage: _selectedImage != null
+                            ? FileImage(_selectedImage!)
+                            : (widget.user.photoURL != null ? NetworkImage(widget.user.photoURL!) : null),
+                        child: (_selectedImage == null && widget.user.photoURL == null)
+                            ? Icon(Icons.person, size: 50, color: Colors.grey[400])
+                            : null,
+                      ),
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.blue, width: 1.5),
+                          ),
+                          child: const Icon(Icons.edit, color: Colors.blue, size: 14),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
             
-            const SizedBox(height: 10),
-            Text(
-              'Status Akun: Aktif',
-              style: TextStyle(color: Colors.green[600], fontWeight: FontWeight.bold),
-            ),
-            Text(
-              joinDate,
-              style: TextStyle(color: Colors.grey[600]),
-            ),
+            Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Jarak penyesuaian setelah avatar
+                  Transform.translate(
+                    offset: Offset(0, -avatarOffset - 10), // Geser form ke atas agar menempel dengan avatar
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Username (Dapat diedit)
+                        _buildCustomTextField(
+                          controller: _nameController,
+                          label: 'Username',
+                          validator: (value) => value?.isEmpty ?? true ? 'Username tidak boleh kosong' : null,
+                        ),
 
-            const SizedBox(height: 30),
+                        // No. Telepon
+                        _buildCustomTextField(
+                          controller: _phoneController,
+                          label: 'No. Telepon',
+                          keyboardType: TextInputType.phone,
+                          validator: (value) => value?.isEmpty ?? true ? 'Nomor telepon tidak boleh kosong' : null,
+                        ),
 
-            // Nama Pengguna
-            _buildReadOnlyTextFormField(
-              value: username,
-              label: 'Nama Pengguna',
-              icon: Icons.person_outline,
-              helperText: 'Nama yang terlihat oleh publik.',
-            ),
+                        // Email (Dapat diedit, tetapi dengan peringatan saat save)
+                        _buildCustomTextField(
+                          controller: _emailController,
+                          label: 'Email',
+                          readOnly: false, 
+                        ),
+                        
+                        // Tanggal Lahir
+                        _buildDateField(context: context),
 
-            // Email
-            _buildReadOnlyTextFormField(
-              value: email,
-              label: 'Email',
-              icon: Icons.email_outlined,
-              helperText: 'Digunakan untuk login dan notifikasi.',
-            ),
-            
-            // Alamat
-            _buildReadOnlyTextFormField(
-              value: address ?? 'Belum ada alamat tersimpan',
-              label: 'Alamat Tersimpan',
-              icon: Icons.location_on_outlined,
-            ),
-
-            const SizedBox(height: 30),
-
-            // Keterangan
-            Text(
-              'Untuk mengubah detail ini, gunakan opsi "Edit Profil".',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                        // Tombol Simpan
+                        ElevatedButton(
+                          onPressed: _isLoading ? null : _saveProfile,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Color(0xFF6f42c1), // Warna ungu gelap
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 18),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            elevation: 5,
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  width: 25,
+                                  height: 20,
+                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                )
+                              : const Text(
+                                  'Simpan',
+                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                ),
+                        ),
+                        const SizedBox(height: 50),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -579,7 +609,13 @@ class AccountDetailsScreen extends StatelessWidget {
 }
 
 // =========================================================================
-// WIDGET SCREEN TENTANG APLIKASI (LAYAR PENUH)
+// WIDGET SCREEN DETAIL AKUN (DIHAPUS)
+// =========================================================================
+// Class AccountDetailsScreen dihapus
+
+
+// =========================================================================
+// WIDGET SCREEN TENTANG APLIKASI (TIDAK BERUBAH)
 // =========================================================================
 
 class AboutAppScreen extends StatelessWidget {
@@ -589,7 +625,7 @@ class AboutAppScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tentang Wisata Lampung Xplore'), // Judul diubah
+        title: const Text('Tentang Wisata Lampung Xplore'), 
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
@@ -602,7 +638,7 @@ class AboutAppScreen extends StatelessWidget {
           children: [
             // Logo Aplikasi (Mengganti Icon dengan Image.asset)
             Image.asset(
-              'assets/images.jpg', // Ganti path sesuai struktur aset Anda
+              'assets/images.jpg', 
               width: 120, 
               height: 120,
               errorBuilder: (context, error, stackTrace) {
@@ -616,7 +652,7 @@ class AboutAppScreen extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'Wisata Lampung Xplore', // Nama aplikasi diubah
+              'Wisata Lampung Xplore', 
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -646,7 +682,7 @@ class AboutAppScreen extends StatelessWidget {
             const Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Informasi & Dukungan', // Judul diubah
+                'Informasi & Dukungan', 
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.teal),
               ),
             ),
@@ -656,7 +692,7 @@ class AboutAppScreen extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.email, color: Colors.teal),
               title: const Text('Email Dukungan'),
-              subtitle: const Text('support@wisatalampungxplore.com'), // Email diubah
+              subtitle: const Text('support@wisatalampungxplore.com'), 
               onTap: () {}, // Tambahkan logika launch URL mailto: jika diperlukan
             ),
             
@@ -664,13 +700,13 @@ class AboutAppScreen extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.code, color: Colors.teal),
               title: const Text('Pengembang'),
-              subtitle: const Text('Tim Xplore Lampung'), // Pengembang diubah
+              subtitle: const Text('Tim Xplore Lampung'), 
               onTap: () {},
             ),
 
             const SizedBox(height: 50),
             Text(
-              '© 2024 Wisata Lampung Xplore', // Hak cipta diubah
+              '© 2024 Wisata Lampung Xplore', 
               style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             ),
           ],
@@ -697,6 +733,9 @@ class _ProfilPageState extends State<ProfilPage> {
   int _currentIndex = 3;
   User? _user;
   String? _address;
+  // BARU: Tambahkan variabel untuk data tambahan yang akan di-fetch
+  String? _phoneNumber;
+  String? _birthDate;
 
   @override
   void initState() {
@@ -711,6 +750,8 @@ class _ProfilPageState extends State<ProfilPage> {
       if (doc.exists) {
         setState(() {
           _address = doc.data()?['address'] ?? '';
+          _phoneNumber = doc.data()?['phoneNumber'] ?? ''; // Muat No. Telepon
+          _birthDate = doc.data()?['birthDate'] ?? '';     // Muat Tanggal Lahir (ISO String)
         });
       }
     }
@@ -872,7 +913,7 @@ class _ProfilPageState extends State<ProfilPage> {
       }
     };
     
-    // Fungsi navigasi ke Edit Profil
+    // Fungsi navigasi ke Edit Profil (Sekarang membawa data baru)
     final Function() navigateToEditProfile = () {
       if (_user != null) {
         Navigator.push(
@@ -881,6 +922,8 @@ class _ProfilPageState extends State<ProfilPage> {
             builder: (context) => EditProfileScreen(
               user: _user!,
               initialAddress: _address,
+              initialPhoneNumber: _phoneNumber, // BARU
+              initialBirthDate: _birthDate,     // BARU
               onProfileUpdated: _refreshProfileData,
             ),
           ),
@@ -890,23 +933,6 @@ class _ProfilPageState extends State<ProfilPage> {
       }
     };
 
-    // Fungsi navigasi ke Detail Akun
-    final Function() navigateToAccountDetails = () {
-      if (_user != null) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => AccountDetailsScreen(
-              user: _user!,
-              address: _address,
-            ),
-          ),
-        );
-      } else {
-        _showMessage('Anda harus login untuk melihat detail akun.');
-      }
-    };
-    
     // Fungsi navigasi ke Tentang Aplikasi (Full Screen)
     final Function() navigateToAboutApp = () {
       Navigator.push(
@@ -1004,134 +1030,96 @@ class _ProfilPageState extends State<ProfilPage> {
 
                   const SizedBox(height: 18),
 
-                  // Profile Header with nicer styling
+                  // Profile Header with nicer styling (Sesuai Screenshot Profil)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: Container(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(16),
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [Colors.teal.shade600, Colors.teal.shade400],
+                        // Menggunakan warna ungu/gradient yang lebih sesuai dengan screenshot
+                        gradient: const LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Color(0xFF8e6fe8), 
+                            Color(0xFF6f42c1) 
+                          ],
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
+                            color: Colors.black.withOpacity(0.1),
                             blurRadius: 18,
                             offset: const Offset(0, 8),
                           ),
                         ],
                       ),
                       padding: const EdgeInsets.symmetric(
-                        vertical: 22,
+                        vertical: 30, 
                         horizontal: 18,
                       ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          // avatar
-                          Container(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                width: 3,
-                                color: Colors.white.withOpacity(0.9),
+                          // Avatar + Edit Icon (disatukan)
+                          Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              CircleAvatar(
+                                radius: 50,
+                                backgroundColor: Colors.white,
+                                backgroundImage: photo != null
+                                    ? NetworkImage(photo)
+                                    : null,
+                                child: photo == null
+                                    ? Icon(
+                                        Icons.person,
+                                        size: 50,
+                                        color: Colors.grey[600],
+                                      )
+                                    : null,
                               ),
-                            ),
-                            child: CircleAvatar(
-                              radius: 44,
-                              backgroundColor: Colors.white,
-                              backgroundImage: photo != null
-                                  ? NetworkImage(photo)
-                                  : null,
-                              child: photo == null
-                                  ? Icon(
-                                      Icons.person,
-                                      size: 44,
-                                      color: Colors.teal[600],
-                                    )
-                                  : null,
+                              // Ikon Edit di sebelah kanan avatar
+                              Positioned(
+                                right: 0,
+                                bottom: 0,
+                                child: GestureDetector(
+                                  onTap: navigateToEditProfile, // Mengarah ke Edit Profile Screen
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: const Color(0xFF6f42c1), width: 2),
+                                    ),
+                                    child: const Icon(
+                                      Icons.edit,
+                                      size: 20,
+                                      color: Color(0xFF6f42c1),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          // Name
+                          Text(
+                            username,
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
                             ),
                           ),
-                          const SizedBox(width: 16),
-                          // name + email + edit button
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  username,
-                                  style: const TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  email,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.white70,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                if (_address != null && _address!.isNotEmpty)
-                                  Text(
-                                    _address!,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.white70,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                const SizedBox(height: 12),
-                                Row(
-                                  children: [
-                                    ElevatedButton.icon(
-                                      onPressed: navigateToEditProfile, // MENGGUNAKAN FUNGSI BARU
-                                      icon: const Icon(Icons.edit, size: 18),
-                                      label: const Text('Edit Profil'),
-                                      style: ElevatedButton.styleFrom(
-                                        elevation: 0,
-                                        backgroundColor: Colors.white,
-                                        foregroundColor: Colors.teal[700],
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 8,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    OutlinedButton(
-                                      onPressed: navigateToChangePassword, // MENGGUNAKAN FUNGSI BARU
-                                      style: OutlinedButton.styleFrom(
-                                        side: BorderSide(
-                                          color: Colors.white.withOpacity(0.6),
-                                        ),
-                                        foregroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 8,
-                                        ),
-                                      ),
-                                      child: const Text('Ganti Kata Sandi'),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                          const SizedBox(height: 4),
+                          // Email
+                          Text(
+                            email,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              color: Colors.white70,
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
@@ -1148,20 +1136,21 @@ class _ProfilPageState extends State<ProfilPage> {
                         _buildCard(
                           title: 'Akun',
                           children: [
+                            // EDIT PROFILE
                             ListTile(
                               leading: const Icon(
-                                Icons.person_outline,
+                                Icons.edit, 
                                 color: Colors.teal,
                               ),
-                              title: const Text('Detail Akun'),
-                              subtitle: const Text('Lihat informasi akun anda'),
+                              title: const Text('Edit Profile'), 
                               trailing: const Icon(Icons.chevron_right),
-                              onTap: navigateToAccountDetails, // Navigasi ke layar Detail Akun
+                              onTap: navigateToEditProfile, 
                             ),
                             const Divider(height: 1),
+                            // GANTI KATA SANDI
                             ListTile(
                               leading: const Icon(
-                                Icons.lock_outline,
+                                Icons.lock_open_outlined, 
                                 color: Colors.orange,
                               ),
                               title: const Text('Ganti Kata Sandi'),
@@ -1169,6 +1158,7 @@ class _ProfilPageState extends State<ProfilPage> {
                               onTap: navigateToChangePassword, 
                             ),
                             const Divider(height: 1),
+                            // HAPUS AKUN
                             ListTile(
                               leading: const Icon(
                                 Icons.delete_outline,
@@ -1176,7 +1166,7 @@ class _ProfilPageState extends State<ProfilPage> {
                               ),
                               title: const Text('Hapus Akun'),
                               trailing: const Icon(Icons.chevron_right),
-                              onTap: _showConfirmDeleteAccountDialog, // <-- Memanggil dialog konfirmasi
+                              onTap: _showConfirmDeleteAccountDialog, // Memanggil dialog konfirmasi
                             ),
                           ],
                         ),

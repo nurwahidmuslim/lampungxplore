@@ -136,7 +136,7 @@ class _FavoritPageState extends State<FavoritPage> {
                         ),
                       ),
                       // DIPERBAIKI: Menggunakan Colors.teal[700] untuk konsistensi tema
-                      Icon(Icons.favorite, color: Colors.teal[700], size: 28),
+                      Icon(Icons.favorite, color: const Color.fromARGB(255, 255, 0, 0), size: 28),
                       const SizedBox(width: 12),
                     ],
                   ),
@@ -171,7 +171,7 @@ class _FavoritPageState extends State<FavoritPage> {
                     decoration: BoxDecoration(
                       // DIPERBAIKI: Menggunakan gradient yang sama dengan ProfilPage Header
                       gradient: LinearGradient(
-                        colors: [Colors.teal.shade600!, Colors.teal.shade400!], 
+                        colors: [const Color.fromARGB(255, 29, 70, 255)!, const Color.fromARGB(255, 13, 158, 241)!], 
                       ),
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
