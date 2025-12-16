@@ -3,6 +3,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+// =============================================================================
+// HALAMAN UTAMA FAVORIT (TAMPILAN LIST 1 BARIS KE BAWAH)
+// =============================================================================
+
 class FavoritPage extends StatefulWidget {
   const FavoritPage({super.key});
 
@@ -45,7 +49,7 @@ class _FavoritPageState extends State<FavoritPage> {
         Navigator.pushReplacementNamed(context, '/home');
         break;
       case 1:
-        Navigator.pushReplacementNamed(context, '/upload'); // DIPERBAIKI: Mengganti /berita menjadi /upload
+        Navigator.pushReplacementNamed(context, '/upload');
         break;
       case 2:
         break; // already on Favorit
@@ -79,9 +83,9 @@ class _FavoritPageState extends State<FavoritPage> {
             label: "Beranda",
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.cloud_upload_outlined), // DIPERBAIKI: Menggunakan ikon Upload
-            activeIcon: Icon(Icons.cloud_upload), // DIPERBAIKI: Menggunakan ikon Upload
-            label: "Upload", // DIPERBAIKI: Mengganti "Berita" menjadi "Upload"
+            icon: Icon(Icons.cloud_upload_outlined),
+            activeIcon: Icon(Icons.cloud_upload),
+            label: "Upload",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.favorite_border),
@@ -135,8 +139,7 @@ class _FavoritPageState extends State<FavoritPage> {
                           ),
                         ),
                       ),
-                      // DIPERBAIKI: Menggunakan Colors.teal[700] untuk konsistensi tema
-                      Icon(Icons.favorite, color: const Color.fromARGB(255, 255, 0, 0), size: 28),
+                      const Icon(Icons.favorite, color: Colors.red, size: 28),
                       const SizedBox(width: 12),
                     ],
                   ),
@@ -163,15 +166,16 @@ class _FavoritPageState extends State<FavoritPage> {
                 const SizedBox(height: 14),
 
                 // Header Card
-                // LOKASI PERUBAHAN WARNA HEADER CARD
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      // DIPERBAIKI: Menggunakan gradient yang sama dengan ProfilPage Header
-                      gradient: LinearGradient(
-                        colors: [const Color.fromARGB(255, 29, 70, 255)!, const Color.fromARGB(255, 13, 158, 241)!], 
+                      gradient: const LinearGradient(
+                        colors: [
+                          Color.fromARGB(255, 29, 70, 255),
+                          Color.fromARGB(255, 13, 158, 241)
+                        ],
                       ),
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
@@ -223,7 +227,7 @@ class _FavoritPageState extends State<FavoritPage> {
 
                 const SizedBox(height: 12),
 
-                // Content
+                // Content (DIPERBAIKI: Selalu ListView)
                 Expanded(
                   child: RefreshIndicator(
                     onRefresh: _refresh,
@@ -255,9 +259,7 @@ class _FavoritPageState extends State<FavoritPage> {
                                 'title': d.data()['title'] ?? 'Tanpa Judul',
                                 'image': d.data()['image'] ?? '',
                                 'location': d.data()['location'] ?? '-',
-                                'destId':
-                                    d.data()['destId'] ??
-                                    d.id, // if you saved destId use it, otherwise fallback to favorite id
+                                'destId': d.data()['destId'] ?? d.id,
                                 'raw': d.data(),
                               },
                             )
@@ -277,37 +279,19 @@ class _FavoritPageState extends State<FavoritPage> {
 
                         if (items.isEmpty) return _emptyState();
 
-                        final width = MediaQuery.of(context).size.width;
-                        final isWide = width > 700;
-
-                        return isWide
-                            ? GridView.builder(
-                                padding: const EdgeInsets.only(
-                                  bottom: 20,
-                                  top: 8,
-                                ),
-                                gridDelegate:
-                                    const SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: 2,
-                                      crossAxisSpacing: 12,
-                                      mainAxisSpacing: 12,
-                                      childAspectRatio: 1.7,
-                                    ),
-                                itemCount: items.length,
-                                itemBuilder: (_, i) =>
-                                    _favoriteCard(item: items[i]),
-                              )
-                            : ListView.separated(
-                                padding: EdgeInsets.only(
-                                  bottom: kBottomNavigationBarHeight + 20,
-                                  top: 8,
-                                ),
-                                itemCount: items.length,
-                                separatorBuilder: (_, __) =>
-                                    const SizedBox(height: 12),
-                                itemBuilder: (_, i) =>
-                                    _favoriteCard(item: items[i]),
-                              );
+                        // --- PERUBAHAN DISINI: HANYA MENGGUNAKAN LISTVIEW ---
+                        return ListView.separated(
+                          padding: const EdgeInsets.only(
+                            bottom: kBottomNavigationBarHeight + 20,
+                            top: 8,
+                            left: 16,
+                            right: 16,
+                          ),
+                          itemCount: items.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 12),
+                          itemBuilder: (_, i) => _favoriteCard(item: items[i]),
+                        );
                       },
                     ),
                   ),
@@ -385,9 +369,7 @@ class _FavoritPageState extends State<FavoritPage> {
                     children: [
                       TextButton(
                         onPressed: () {
-                          // Open detail page: prefer destId if present (points to destinations doc id)
-                          final destId =
-                              item['destId']?.toString() ??
+                          final destId = item['destId']?.toString() ??
                               item['id'].toString();
                           Navigator.push(
                             context,
@@ -414,8 +396,7 @@ class _FavoritPageState extends State<FavoritPage> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text(
-                                  'Harap login untuk menghapus favorit',
-                                ),
+                                    'Harap login untuk menghapus favorit'),
                               ),
                             );
                             return;
@@ -478,10 +459,76 @@ class _FavoritPageState extends State<FavoritPage> {
   }
 }
 
-/// Detail page that fetches the latest destination document from `destinations/{id}`
+// =============================================================================
+// HALAMAN DETAIL (Support Kontak TikTok, IG, dll)
+// =============================================================================
+
 class DestinationDetailPage extends StatelessWidget {
   final String id;
   const DestinationDetailPage({required this.id, super.key});
+
+  // Fungsi helper untuk membuka URL (Placeholder)
+  void _launchURL(BuildContext context, String url) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Membuka: $url')),
+    );
+    // Jika sudah pasang url_launcher, gunakan:
+    // launchUrl(Uri.parse(url));
+  }
+
+  // Helper untuk menentukan Ikon berdasarkan label
+  IconData _getIconForLabel(String label) {
+    final l = label.toLowerCase();
+    if (l.contains('tiktok')) return Icons.music_note; // Ikon mirip not balok
+    if (l.contains('instagram') || l.contains('ig')) return Icons.camera_alt;
+    if (l.contains('facebook') || l.contains('fb')) return Icons.facebook;
+    if (l.contains('youtube') || l.contains('yt')) return Icons.play_circle_fill;
+    if (l.contains('twitter') || l.contains('x')) return Icons.alternate_email;
+    if (l.contains('web')) return Icons.language;
+    if (l.contains('wa') || l.contains('whatsapp')) return Icons.chat;
+    return Icons.link; // Default
+  }
+
+  // Widget Helper untuk Baris Kontak agar Rapi
+  Widget _buildContactRow(
+      BuildContext context, IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: Colors.teal),
+          const SizedBox(width: 10),
+          // Label (misal: TikTok)
+          SizedBox(
+            width: 85,
+            child: Text(
+              label,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w600, color: Colors.black87),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // URL / Value
+          Expanded(
+            child: Text(
+              value,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.blueAccent),
+            ),
+          ),
+          // Tombol Buka
+          SizedBox(
+            height: 30,
+            child: TextButton(
+              onPressed: () => _launchURL(context, value),
+              style: TextButton.styleFrom(padding: EdgeInsets.zero),
+              child: const Text('Buka'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -501,31 +548,40 @@ class DestinationDetailPage extends StatelessWidget {
       body: StreamBuilder<DocumentSnapshot>(
         stream: docStream,
         builder: (context, snap) {
-          if (snap.connectionState == ConnectionState.waiting)
+          if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
+          }
           if (snap.hasError) return Center(child: Text('Error: ${snap.error}'));
-          if (!snap.hasData || !snap.data!.exists)
+          if (!snap.hasData || !snap.data!.exists) {
             return const Center(child: Text('Data tidak ditemukan'));
+          }
 
           final data = snap.data!.data() as Map<String, dynamic>;
+
+          // Extract Data
           final title = (data['title'] ?? 'Tanpa Judul').toString();
           final description =
               (data['description'] ?? 'Deskripsi belum tersedia').toString();
           final location = (data['location'] ?? '-').toString();
           final category = (data['category'] ?? data['type'] ?? '-').toString();
-          final List photos = (data['photos'] is List)
-              ? data['photos']
-              : <dynamic>[];
+          final List photos =
+              (data['photos'] is List) ? data['photos'] : <dynamic>[];
           final rating = data['rating'];
           final reviews = data['reviews'] ?? 0;
-          final contact = data['contact'] ?? {};
-          final facilities = (data['facilities'] is List)
-              ? data['facilities']
-              : <dynamic>[];
+
+          // Kontak & Fasilitas
+          final contact = data['contact'] ?? {}; // Map
+          final facilities =
+              (data['facilities'] is List) ? data['facilities'] : <dynamic>[];
+
+          // Support array social_links jika ada
+          // Format: [{ 'label': 'TikTok', 'url': '...' }]
+          final List socialLinks =
+              (data['social_links'] is List) ? data['social_links'] : [];
 
           return ListView(
             children: [
-              // Photo carousel
+              // --- 1. PHOTO CAROUSEL ---
               if (photos.isNotEmpty)
                 SizedBox(
                   height: 280,
@@ -553,61 +609,44 @@ class DestinationDetailPage extends StatelessWidget {
                 ),
 
               const SizedBox(height: 12),
+
+              // --- 2. INFO CONTAINER ---
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: const BoxDecoration(
                   color: Colors.white,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(12),
-                  ),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            title,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
+                    // Title
+                    Text(
+                      title,
+                      style: const TextStyle(
+                          fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
+
+                    // Category & Rating
                     Row(
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
+                              horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
                             color: Colors.blue.shade50,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Row(
                             children: [
-                              const Icon(
-                                Icons.beach_access_rounded,
-                                size: 14,
-                                color: Colors.blue,
-                              ),
+                              const Icon(Icons.beach_access_rounded,
+                                  size: 14, color: Colors.blue),
                               const SizedBox(width: 8),
-                              Text(
-                                category,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                              Text(category,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600)),
                             ],
                           ),
                         ),
@@ -615,165 +654,153 @@ class DestinationDetailPage extends StatelessWidget {
                         if (rating != null)
                           Row(
                             children: [
-                              const Icon(
-                                Icons.star,
-                                size: 16,
-                                color: Colors.amber,
-                              ),
+                              const Icon(Icons.star,
+                                  size: 16, color: Colors.amber),
                               const SizedBox(width: 4),
                               Text(rating.toString()),
                               const SizedBox(width: 6),
-                              Text(
-                                '($reviews)',
-                                style: const TextStyle(color: Colors.black54),
-                              ),
+                              Text('($reviews)',
+                                  style:
+                                      const TextStyle(color: Colors.black54)),
                             ],
                           ),
                       ],
                     ),
                     const SizedBox(height: 12),
+
+                    // Location
                     Row(
                       children: [
-                        const Icon(
-                          Icons.location_on,
-                          size: 16,
-                          color: Colors.grey,
-                        ),
+                        const Icon(Icons.location_on,
+                            size: 16, color: Colors.grey),
                         const SizedBox(width: 6),
                         Expanded(
-                          child: Text(
-                            location,
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          onPressed: () =>
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Buka Maps belum diimplementasikan',
-                                  ),
-                                ),
-                              ),
-                          icon: const Icon(Icons.map_outlined),
-                          label: const Text('Buka di Maps'),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
+                          child: Text(location,
+                              style: const TextStyle(fontSize: 14)),
                         ),
                       ],
                     ),
+
                     const SizedBox(height: 16),
+
+                    // Description
                     Text(
                       'Deskripsi',
                       style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: Colors.grey[800],
-                      ),
+                          fontWeight: FontWeight.w700, color: Colors.grey[800]),
                     ),
                     const SizedBox(height: 8),
                     Text(description, style: const TextStyle(height: 1.6)),
                     const SizedBox(height: 16),
+
+                    // Facilities
                     if (facilities.isNotEmpty) ...[
                       Text(
                         'Fasilitas',
                         style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: Colors.grey[800],
-                        ),
+                            fontWeight: FontWeight.w700, color: Colors.grey[800]),
                       ),
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
                         children: facilities
-                            .map<Widget>(
-                              (f) => Chip(
-                                label: Text(f.toString()),
-                                backgroundColor: Colors.grey[100],
-                              ),
-                            )
+                            .map<Widget>((f) => Chip(
+                                  label: Text(f.toString()),
+                                  backgroundColor: Colors.grey[100],
+                                ))
                             .toList(),
                       ),
                       const SizedBox(height: 16),
                     ],
+
+                    // --- KONTAK & SOSIAL MEDIA ---
                     Text(
-                      'Kontak',
+                      'Kontak & Sosial Media',
                       style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: Colors.grey[800],
-                      ),
+                          fontWeight: FontWeight.w700, color: Colors.grey[800]),
                     ),
                     const SizedBox(height: 8),
-                    if (contact is Map && contact.isNotEmpty) ...[
-                      if ((contact['phone'] ?? '').toString().isNotEmpty)
-                        Row(
-                          children: [
-                            const Icon(Icons.phone, size: 16),
-                            const SizedBox(width: 8),
-                            Text(contact['phone'].toString()),
-                            const SizedBox(width: 12),
-                            TextButton(
-                              onPressed: () {},
-                              child: const Text('Panggil'),
-                            ),
+
+                    if ((contact is Map && contact.isNotEmpty) ||
+                        socialLinks.isNotEmpty) ...[
+                      Column(
+                        children: [
+                          // 1. Cek Phone
+                          if (contact is Map &&
+                              (contact['phone'] ?? '').toString().isNotEmpty)
+                            _buildContactRow(context, Icons.phone, 'Telepon',
+                                contact['phone'].toString()),
+
+                          // 2. Cek Website
+                          if (contact is Map &&
+                              (contact['website'] ?? '').toString().isNotEmpty)
+                            _buildContactRow(context, Icons.language, 'Website',
+                                contact['website'].toString()),
+
+                          // 3. Cek Key Sosial Media Spesifik di Map 'contact'
+                          if (contact is Map) ...[
+                            if ((contact['tiktok'] ?? '').toString().isNotEmpty)
+                              _buildContactRow(
+                                  context,
+                                  Icons.music_note,
+                                  'TikTok',
+                                  contact['tiktok'].toString()),
+                            if ((contact['instagram'] ?? '')
+                                .toString()
+                                .isNotEmpty)
+                              _buildContactRow(
+                                  context,
+                                  Icons.camera_alt,
+                                  'Instagram',
+                                  contact['instagram'].toString()),
+                            if ((contact['facebook'] ?? '')
+                                .toString()
+                                .isNotEmpty)
+                              _buildContactRow(
+                                  context,
+                                  Icons.facebook,
+                                  'Facebook',
+                                  contact['facebook'].toString()),
                           ],
-                        ),
-                      if ((contact['website'] ?? '').toString().isNotEmpty)
-                        Row(
-                          children: [
-                            const Icon(Icons.link, size: 16),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                contact['website'].toString(),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () {},
-                              child: const Text('Buka'),
-                            ),
-                          ],
-                        ),
+
+                          // 4. Cek Array 'social_links' (Jika data disimpan sebagai List)
+                          ...socialLinks.map((item) {
+                            final label = item['label'] ?? 'Link';
+                            final url = item['url'] ?? '';
+                            return _buildContactRow(
+                                context,
+                                _getIconForLabel(label.toString()),
+                                label.toString(),
+                                url.toString());
+                          }),
+                        ],
+                      )
                     ] else
                       const Text('-', style: TextStyle(color: Colors.black54)),
+
                     const SizedBox(height: 18),
 
-                    // actions: share + favorite (toggle saved favorite here too)
+                    // Actions (Share & Save)
                     Row(
                       children: [
                         OutlinedButton.icon(
                           onPressed: () =>
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Share belum diimplementasikan',
-                                  ),
-                                ),
-                              ),
+                            const SnackBar(
+                                content: Text('Share belum diimplementasikan')),
+                          ),
                           icon: const Icon(Icons.share),
                           label: const Text('Bagikan'),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 12,
-                            ),
+                                horizontal: 12, vertical: 12),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
+                                borderRadius: BorderRadius.circular(10)),
                           ),
                         ),
                         const SizedBox(width: 12),
                         _DetailFavoriteButton(id: id, data: data),
-                        const Spacer(),
                       ],
                     ),
                     const SizedBox(height: 28),
@@ -788,7 +815,10 @@ class DestinationDetailPage extends StatelessWidget {
   }
 }
 
-/// Favorite toggle button used inside detail page
+// =============================================================================
+// TOMBOL FAVORIT
+// =============================================================================
+
 class _DetailFavoriteButton extends StatefulWidget {
   final String id;
   final Map<String, dynamic> data;
@@ -847,31 +877,28 @@ class _DetailFavoriteButtonState extends State<_DetailFavoriteButton> {
       if (_isFav) {
         await ref.delete();
         setState(() => _isFav = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Dihapus dari favorit')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Dihapus dari favorit')));
       } else {
         await ref.set({
           'title': widget.data['title'] ?? 'Tanpa Judul',
           'category': widget.data['category'] ?? widget.data['type'],
-          'image':
-              (widget.data['photos'] is List &&
+          'image': (widget.data['photos'] is List &&
                   widget.data['photos'].isNotEmpty)
-                  ? widget.data['photos'][0]
-                  : '',
+              ? widget.data['photos'][0]
+              : '',
           'location': widget.data['location'] ?? '-',
-          'destId': widget.id, // save link to original destination doc
+          'destId': widget.id,
           'timestamp': FieldValue.serverTimestamp(),
         });
         setState(() => _isFav = true);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Ditambahkan ke favorit')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Ditambahkan ke favorit')));
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Gagal: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal: $e')),
+      );
     } finally {
       setState(() => _loading = false);
     }
