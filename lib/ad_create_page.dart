@@ -12,20 +12,24 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+import 'package:intl/intl.dart'; // Disarankan menambahkan intl di pubspec.yaml, tapi kode ini pakai format manual agar aman
 
 /// ---------- CONFIG ----------
-const String cloudName = 'dodtteomx'; // <-- ganti dengan cloud name Anda
-const String uploadPreset = 'lampung_xplore'; // <-- ganti unsigned preset Anda
+const String cloudName = 'dodtteomx'; 
+const String uploadPreset = 'lampung_xplore'; 
 const String cloudinaryFolder = 'iklan';
 
 const String backendCreatePaymentUrl =
-    'http://localhost:8080/create_midtrans_transaction';
+    'http://localhost:8080/create_midtrans_transaction'; // Ganti localhost dengan IP jika di HP
 const String backendPaymentStatusUrl = 'http://localhost:8080/payment_status';
 
-/// Jika backend/merchant mengarahkan pengguna ke URL tertentu setelah bayar,
-/// isi dengan prefix itu (mis: 'https://example.com/payment-success').
-/// Jika kosong, deteksi akan mengandalkan query param 'status' atau kata kunci path.
-const String paymentSuccessUrlPrefix = ''; // <-- sesuaikan jika perlu
+const String paymentSuccessUrlPrefix = '';
+
+/// ---------- THEME CONSTANTS ----------
+const Color kPrimaryColor = Color(0xFF0D47A1); // Blue Shade
+const Color kSecondaryColor = Color(0xFF1976D2);
+const Color kBackgroundColor = Color(0xFFF5F7FA);
+const double kRadius = 16.0;
 
 /// ---------- PAYMENT OVERLAY WIDGET (mobile only) ----------
 class PaymentOverlayPage extends StatefulWidget {
@@ -44,14 +48,12 @@ class _PaymentOverlayPageState extends State<PaymentOverlayPage> {
   @override
   void initState() {
     super.initState();
-
-    // NOTE: this widget is intended for Android/iOS only. Do not instantiate on Web.
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageFinished: (url) {
-            setState(() => _loading = false);
+            if (mounted) setState(() => _loading = false);
           },
           onNavigationRequest: (navReq) {
             final url = navReq.url;
@@ -69,12 +71,10 @@ class _PaymentOverlayPageState extends State<PaymentOverlayPage> {
   bool _isSuccessUrl(String url) {
     try {
       final lower = url.toLowerCase();
-
       if (paymentSuccessUrlPrefix.isNotEmpty) {
         final pref = paymentSuccessUrlPrefix.toLowerCase();
         if (lower.startsWith(pref) || lower.contains(pref)) return true;
       }
-
       final uri = Uri.tryParse(url);
       if (uri != null) {
         final status = uri.queryParameters['status']?.toLowerCase();
@@ -85,18 +85,7 @@ class _PaymentOverlayPageState extends State<PaymentOverlayPage> {
                 status.contains('success'))) {
           return true;
         }
-        final alt =
-            uri.queryParameters['transaction_status']?.toLowerCase() ??
-            uri.queryParameters['result']?.toLowerCase();
-        if (alt != null &&
-            (alt.contains('settlement') ||
-                alt.contains('paid') ||
-                alt.contains('capture') ||
-                alt.contains('success'))) {
-          return true;
-        }
       }
-
       if (lower.contains('/success') ||
           lower.contains('/finish') ||
           lower.contains('/settlement') ||
@@ -111,7 +100,7 @@ class _PaymentOverlayPageState extends State<PaymentOverlayPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black54,
+      backgroundColor: Colors.black87,
       body: SafeArea(
         child: Center(
           child: Container(
@@ -122,34 +111,24 @@ class _PaymentOverlayPageState extends State<PaymentOverlayPage> {
             ),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: const [
-                BoxShadow(color: Colors.black26, blurRadius: 8),
-              ],
+              borderRadius: BorderRadius.circular(kRadius),
             ),
             child: Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 6,
-                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      const Text(
+                        'Pembayaran',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 18),
+                      ),
                       IconButton(
                         icon: const Icon(Icons.close),
                         onPressed: () => Navigator.of(context).pop(false),
-                      ),
-                      const Text(
-                        'Pembayaran',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      const Spacer(),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.of(context).pop(true);
-                        },
-                        child: const Text('Saya sudah bayar'),
                       ),
                     ],
                   ),
@@ -164,6 +143,23 @@ class _PaymentOverlayPageState extends State<PaymentOverlayPage> {
                     ],
                   ),
                 ),
+                Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () => Navigator.of(context).pop(true),
+                      child: const Text('Saya Sudah Membayar'),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -173,7 +169,7 @@ class _PaymentOverlayPageState extends State<PaymentOverlayPage> {
   }
 }
 
-/// ---------- AD HISTORY PAGE (reads from Firestore) ----------
+/// ---------- AD HISTORY PAGE ----------
 class AdHistoryPage extends StatelessWidget {
   const AdHistoryPage({super.key});
 
@@ -182,11 +178,11 @@ class AdHistoryPage extends StatelessWidget {
       if (v == null) return '-';
       if (v is Timestamp) {
         final d = v.toDate().toLocal();
-        return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+        return '${d.day}/${d.month}/${d.year}';
       }
       final ms = v is int ? v : int.parse(v.toString());
       final d = DateTime.fromMillisecondsSinceEpoch(ms).toLocal();
-      return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      return '${d.day}/${d.month}/${d.year}';
     } catch (_) {
       return '-';
     }
@@ -213,16 +209,20 @@ class AdHistoryPage extends StatelessWidget {
     final st = (s ?? '').toLowerCase();
     if (st.contains('settlement') ||
         st.contains('paid') ||
-        st.contains('capture')) {
-      return Colors.green;
-    }
-    if (st.contains('pending')) return Colors.orange;
+        st.contains('capture')) return Colors.green.shade600;
+    if (st.contains('pending')) return Colors.orange.shade700;
     if (st.contains('failed') ||
         st.contains('expire') ||
-        st.contains('cancel')) {
-      return Colors.red;
-    }
+        st.contains('cancel')) return Colors.red.shade600;
     return Colors.grey;
+  }
+
+  String _statusText(String? s) {
+    final st = (s ?? '').toLowerCase();
+    if (st.contains('settlement') || st.contains('paid')) return 'Aktif';
+    if (st.contains('pending')) return 'Menunggu';
+    if (st.contains('failed') || st.contains('cancel')) return 'Gagal';
+    return st.toUpperCase();
   }
 
   @override
@@ -244,7 +244,13 @@ class AdHistoryPage extends StatelessWidget {
         .snapshots();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Riwayat Iklan')),
+      backgroundColor: kBackgroundColor,
+      appBar: AppBar(
+        title: const Text('Riwayat Iklan'),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black87,
+        elevation: 0.5,
+      ),
       body: StreamBuilder<QuerySnapshot>(
         stream: stream,
         builder: (context, snap) {
@@ -252,124 +258,135 @@ class AdHistoryPage extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           if (!snap.hasData || snap.data!.docs.isEmpty) {
-            return const Center(child: Text('Belum ada riwayat iklan'));
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.history_edu, size: 80, color: Colors.grey.shade300),
+                  const SizedBox(height: 16),
+                  Text('Belum ada riwayat iklan',
+                      style: TextStyle(color: Colors.grey.shade600)),
+                ],
+              ),
+            );
           }
           final docs = snap.data!.docs;
-          return RefreshIndicator(
-            onRefresh: () async {
-              // no-op (stream is live)
-              return;
-            },
-            child: ListView.separated(
-              padding: const EdgeInsets.all(12),
-              itemCount: docs.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (context, idx) {
-                final d = docs[idx];
-                final m = d.data() as Map<String, dynamic>;
-                final imageUrl = (m['imageUrl'] as String?) ?? '';
-                final title = (m['title'] as String?) ?? 'Iklan';
-                final orderId = (m['orderId'] as String?) ?? d.id;
-                final start = _formatDateFromMillis(m['startAt']);
-                final end = _formatDateFromMillis(m['endAt']);
-                final amount = _formatCurrency(m['grossAmount']);
-                final status = (m['status'] as String?) ?? '-';
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: docs.length,
+            itemBuilder: (context, idx) {
+              final d = docs[idx];
+              final m = d.data() as Map<String, dynamic>;
+              final imageUrl = (m['imageUrl'] as String?) ?? '';
+              final title = (m['title'] as String?) ?? 'Iklan';
+              final start = _formatDateFromMillis(m['startAt']);
+              final end = _formatDateFromMillis(m['endAt']);
+              final amount = _formatCurrency(m['grossAmount']);
+              final status = (m['status'] as String?) ?? '-';
 
-                return Card(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: imageUrl.isNotEmpty
-                              ? Image.network(
-                                  imageUrl,
-                                  width: 88,
-                                  height: 64,
+              return Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      // Thumbnail Image
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          color: Colors.grey.shade100,
+                          image: imageUrl.isNotEmpty
+                              ? DecorationImage(
+                                  image: NetworkImage(imageUrl),
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Container(
-                                    width: 88,
-                                    height: 64,
-                                    color: Colors.grey[300],
-                                    child: const Icon(Icons.broken_image),
-                                  ),
                                 )
-                              : Container(
-                                  width: 88,
-                                  height: 64,
-                                  color: Colors.grey[300],
-                                  child: const Icon(Icons.image),
-                                ),
+                              : null,
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                title,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'Periode: $start — $end',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                amount,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
+                        child: imageUrl.isEmpty
+                            ? const Icon(Icons.image, color: Colors.grey)
+                            : null,
+                      ),
+                      const SizedBox(width: 14),
+                      // Content
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _statusColor(status).withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                status.toUpperCase(),
-                                style: TextStyle(
-                                  color: _statusColor(status),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: _statusColor(status).withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    _statusText(status),
+                                    style: TextStyle(
+                                      color: _statusColor(status),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                const Icon(Icons.date_range,
+                                    size: 14, color: Colors.grey),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '$start - $end',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.grey.shade700),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
                             Text(
-                              orderId,
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: Colors.grey,
+                              amount,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: kPrimaryColor,
                               ),
                             ),
                           ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                );
-              },
-            ),
+                ),
+              );
+            },
           );
         },
       ),
@@ -377,7 +394,7 @@ class AdHistoryPage extends StatelessWidget {
   }
 }
 
-/// ---------- AD CREATE PAGE ----------
+/// ---------- AD CREATE PAGE (UI REVAMPED) ----------
 class AdCreatePage extends StatefulWidget {
   const AdCreatePage({super.key});
   @override
@@ -394,15 +411,12 @@ class _AdCreatePageState extends State<AdCreatePage> {
   static const int PER_DAY_RATE = 3000;
   DateTime _start = DateTime.now();
   DateTime _end = DateTime.now().add(const Duration(days: 7));
-  // mobile file
   File? _imageFile;
-  // web bytes & filename
   Uint8List? _imageBytes;
   String? _imageName;
 
   bool _loading = false;
 
-  // ---------------- helpers ----------------
   int get _selectedPlacementsCount {
     int c = 0;
     if (_placementBanner) c++;
@@ -435,10 +449,7 @@ class _AdCreatePageState extends State<AdCreatePage> {
     try {
       if (kIsWeb) {
         final XFile? x = await _picker.pickImage(
-          source: ImageSource.gallery,
-          maxWidth: 1600,
-          imageQuality: 80,
-        );
+            source: ImageSource.gallery, maxWidth: 1600, imageQuality: 80);
         if (x == null) return;
         final bytes = await x.readAsBytes();
         setState(() {
@@ -448,10 +459,7 @@ class _AdCreatePageState extends State<AdCreatePage> {
         });
       } else {
         final XFile? x = await _picker.pickImage(
-          source: ImageSource.gallery,
-          maxWidth: 1600,
-          imageQuality: 80,
-        );
+            source: ImageSource.gallery, maxWidth: 1600, imageQuality: 80);
         if (x == null) return;
         setState(() {
           _imageFile = File(x.path);
@@ -461,9 +469,8 @@ class _AdCreatePageState extends State<AdCreatePage> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Gagal pilih gambar: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Gagal pilih gambar: $e')));
     }
   }
 
@@ -476,29 +483,19 @@ class _AdCreatePageState extends State<AdCreatePage> {
     String? filename,
   }) async {
     final uri = Uri.parse(
-      'https://api.cloudinary.com/v1_1/$cloudName/image/upload',
-    );
+        'https://api.cloudinary.com/v1_1/$cloudName/image/upload');
     final request = http.MultipartRequest('POST', uri)
       ..fields['upload_preset'] = uploadPreset
       ..fields['folder'] = folder;
 
     if (kIsWeb) {
       if (bytes == null) throw Exception('No bytes for web upload');
-      final name =
-          filename ?? 'upload_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      // try detect mime by extension
+      final name = filename ?? 'upload_${DateTime.now().millisecondsSinceEpoch}.jpg';
       String mime = 'image/jpeg';
       if (name.toLowerCase().endsWith('.png')) mime = 'image/png';
-      if (name.toLowerCase().endsWith('.webp')) mime = 'image/webp';
-      if (name.toLowerCase().endsWith('.gif')) mime = 'image/gif';
-      request.files.add(
-        http.MultipartFile.fromBytes(
-          'file',
-          bytes,
+      request.files.add(http.MultipartFile.fromBytes('file', bytes,
           filename: name,
-          contentType: MediaType(mime.split('/')[0], mime.split('/')[1]),
-        ),
-      );
+          contentType: MediaType(mime.split('/')[0], mime.split('/')[1])));
     } else {
       if (file == null) throw Exception('No file for mobile upload');
       request.files.add(await http.MultipartFile.fromPath('file', file.path));
@@ -510,13 +507,10 @@ class _AdCreatePageState extends State<AdCreatePage> {
     if (resp.statusCode >= 200 && resp.statusCode < 300) {
       final Map<String, dynamic> body = jsonDecode(resp.body);
       final url = body['secure_url'] as String?;
-      if (url == null)
-        throw Exception('Upload succeeded but no secure_url returned');
+      if (url == null) throw Exception('No secure_url returned');
       return url;
     } else {
-      throw Exception(
-        'Cloudinary upload failed: ${resp.statusCode} ${resp.body}',
-      );
+      throw Exception('Cloudinary upload failed: ${resp.statusCode} ${resp.body}');
     }
   }
 
@@ -526,8 +520,21 @@ class _AdCreatePageState extends State<AdCreatePage> {
       initialDate: _start,
       firstDate: DateTime.now().subtract(const Duration(days: 1)),
       lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(primary: kPrimaryColor),
+          ),
+          child: child!,
+        );
+      },
     );
-    if (d != null) setState(() => _start = d);
+    if (d != null) {
+      setState(() {
+        _start = d;
+        if (_end.isBefore(_start)) _end = _start.add(const Duration(days: 1));
+      });
+    }
   }
 
   Future<void> _pickEndDate() async {
@@ -536,17 +543,23 @@ class _AdCreatePageState extends State<AdCreatePage> {
       initialDate: _end,
       firstDate: _start,
       lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(primary: kPrimaryColor),
+          ),
+          child: child!,
+        );
+      },
     );
     if (d != null) setState(() => _end = d);
   }
 
-  // ---------------- main submit flow ----------------
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedPlacementsCount == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pilih minimal satu penempatan iklan')),
-      );
+          const SnackBar(content: Text('Pilih minimal satu penempatan iklan')));
       return;
     }
     _formKey.currentState!.save();
@@ -554,8 +567,7 @@ class _AdCreatePageState extends State<AdCreatePage> {
     final u = FirebaseAuth.instance.currentUser;
     if (u == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Silakan login terlebih dahulu')),
-      );
+          const SnackBar(content: Text('Silakan login terlebih dahulu')));
       return;
     }
 
@@ -565,29 +577,25 @@ class _AdCreatePageState extends State<AdCreatePage> {
         'order_${DateTime.now().millisecondsSinceEpoch}_${u.uid.length >= 6 ? u.uid.substring(0, 6) : u.uid}';
 
     try {
-      // upload to cloudinary if image present
       if (kIsWeb) {
         if (_imageBytes != null) {
           imageUrl = await _uploadToCloudinary(
-            cloudName: cloudName,
-            uploadPreset: uploadPreset,
-            folder: cloudinaryFolder,
-            bytes: _imageBytes,
-            filename: _imageName,
-          );
+              cloudName: cloudName,
+              uploadPreset: uploadPreset,
+              folder: cloudinaryFolder,
+              bytes: _imageBytes,
+              filename: _imageName);
         }
       } else {
         if (_imageFile != null) {
           imageUrl = await _uploadToCloudinary(
-            cloudName: cloudName,
-            uploadPreset: uploadPreset,
-            folder: cloudinaryFolder,
-            file: _imageFile,
-          );
+              cloudName: cloudName,
+              uploadPreset: uploadPreset,
+              folder: cloudinaryFolder,
+              file: _imageFile);
         }
       }
 
-      // build payload for backend
       final amount = _totalAmount;
       if (amount <= 0) throw Exception('Total amount harus > 0');
 
@@ -605,7 +613,6 @@ class _AdCreatePageState extends State<AdCreatePage> {
         'endAt': _end.millisecondsSinceEpoch,
       };
 
-      // create provisional Firestore record under users/{uid}/ads_history/{orderId}
       final userAdsRef = FirebaseFirestore.instance
           .collection('users')
           .doc(u.uid)
@@ -620,12 +627,11 @@ class _AdCreatePageState extends State<AdCreatePage> {
         'endAt': payload['endAt'],
         'grossAmount': payload['grossAmount'],
         'placements': payload['placements'],
-        'status': 'pending', // initial
+        'status': 'pending',
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      // call backend to create midtrans transaction
       final resp = await http
           .post(
             Uri.parse(backendCreatePaymentUrl),
@@ -645,25 +651,23 @@ class _AdCreatePageState extends State<AdCreatePage> {
 
       if (paymentUrl.isEmpty) throw Exception('Payment URL kosong dari server');
 
-      // show info then open payment flow
       final open = await showDialog<bool>(
         context: context,
         builder: (c) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text('Lanjut ke Pembayaran'),
-          content: Text(
-            kIsWeb
-                ? 'Anda akan diarahkan ke halaman pembayaran (tab baru). Selesaikan pembayaran di sana.'
-                : 'Anda akan diarahkan ke halaman pembayaran di dalam aplikasi. Selesaikan pembayaran di sana.',
-          ),
+          content: Text(kIsWeb
+              ? 'Halaman pembayaran akan dibuka di tab baru.'
+              : 'Halaman pembayaran akan dibuka di dalam aplikasi.'),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(c, false),
-              child: const Text('Batal'),
-            ),
+                onPressed: () => Navigator.pop(c, false),
+                child: const Text('Batal', style: TextStyle(color: Colors.grey))),
             ElevatedButton(
-              onPressed: () => Navigator.pop(c, true),
-              child: const Text('Lanjutkan'),
-            ),
+                style: ElevatedButton.styleFrom(backgroundColor: kPrimaryColor),
+                onPressed: () => Navigator.pop(c, true),
+                child:
+                    const Text('Lanjutkan', style: TextStyle(color: Colors.white))),
           ],
         ),
       );
@@ -672,40 +676,28 @@ class _AdCreatePageState extends State<AdCreatePage> {
         return;
       }
 
-      // DIFFERENTIATION: Web vs Mobile
       if (kIsWeb) {
-        // on web, do not use webview_flutter (not supported) - open in new tab
-        final launched = await launchUrlString(
-          paymentUrl,
-          mode: LaunchMode.platformDefault,
-        );
+        final launched = await launchUrlString(paymentUrl,
+            mode: LaunchMode.platformDefault);
         if (!launched) throw Exception('Gagal membuka halaman pembayaran');
-        // After user finishes paying in the new tab, they should come back and press "Saya sudah bayar"
-        // We mimic the previous flow by showing the waiting dialog and polling backend for final confirmation.
       } else {
-        // mobile: overlay WebView (automatic redirect detection inside)
         final result = await Navigator.of(context).push<bool>(
           PageRouteBuilder(
             opaque: false,
             pageBuilder: (context, anim1, anim2) =>
                 PaymentOverlayPage(paymentUrl: paymentUrl),
-            transitionsBuilder: (context, anim, sec, child) {
-              return FadeTransition(opacity: anim, child: child);
-            },
+            transitionsBuilder: (context, anim, sec, child) =>
+                FadeTransition(opacity: anim, child: child),
           ),
         );
-
         if (result != true) {
-          // user closed overlay without confirming payment
           setState(() => _loading = false);
           return;
         }
       }
 
-      // show waiting dialog while polling
       _showWaitingDialog();
 
-      // poll payment status
       bool paid = false;
       const maxAttempts = 20;
       const delaySec = 3;
@@ -729,60 +721,39 @@ class _AdCreatePageState extends State<AdCreatePage> {
         } catch (_) {}
       }
 
-      // close waiting dialog
       if (mounted) Navigator.of(context).pop();
 
-      // update Firestore record based on result
       if (paid) {
         await userAdsRef.update({
           'status': 'settlement',
           'updatedAt': FieldValue.serverTimestamp(),
         });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                backgroundColor: Colors.green,
+                content: Text('Pembayaran berhasil! Iklan aktif.')),
+          );
+          Navigator.of(context).pop();
+        }
       } else {
         await userAdsRef.update({
           'status': 'failed',
           'updatedAt': FieldValue.serverTimestamp(),
         });
-      }
-
-      if (!paid) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Pembayaran tidak selesai atau timeout. Periksa riwayat di dashboard.',
-            ),
-          ),
-        );
-        setState(() => _loading = false);
-        return;
-      }
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pembayaran berhasil. Iklan akan aktif.')),
-      );
-      Navigator.of(context).pop();
-    } catch (e) {
-      // best-effort: mark pending->failed locally if possible
-      try {
-        final u = FirebaseAuth.instance.currentUser;
-        if (u != null) {
-          final ref = FirebaseFirestore.instance
-              .collection('users')
-              .doc(u.uid)
-              .collection('ads_history')
-              .doc(adOrderId);
-          await ref.set({
-            'status': 'failed',
-            'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                backgroundColor: Colors.red,
+                content: Text('Pembayaran gagal atau timeout.')),
+          );
         }
-      } catch (_) {}
-      if (mounted)
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Gagal: $e')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(backgroundColor: Colors.red, content: Text('Gagal: $e')));
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -794,11 +765,13 @@ class _AdCreatePageState extends State<AdCreatePage> {
       barrierDismissible: false,
       builder: (c) {
         return AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           content: Row(
             children: const [
               SizedBox(width: 4),
               CircularProgressIndicator(),
-              SizedBox(width: 16),
+              SizedBox(width: 20),
               Expanded(child: Text('Menunggu konfirmasi pembayaran...')),
             ],
           ),
@@ -807,237 +780,329 @@ class _AdCreatePageState extends State<AdCreatePage> {
     );
   }
 
-  // ---------------- UI ----------------
+  // ---------- WIDGETS ----------
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+          color: Colors.blueGrey.shade800,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImagePicker() {
+    bool hasImage = _imageFile != null || _imageBytes != null;
+    return GestureDetector(
+      onTap: _pickImage,
+      child: Container(
+        height: 180,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: hasImage ? Colors.white : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: hasImage ? kPrimaryColor : Colors.grey.shade400,
+            width: hasImage ? 2 : 1,
+            style: hasImage ? BorderStyle.solid : BorderStyle.solid,
+          ),
+          image: hasImage
+              ? DecorationImage(
+                  image: kIsWeb
+                      ? MemoryImage(_imageBytes!) as ImageProvider
+                      : FileImage(_imageFile!),
+                  fit: BoxFit.cover,
+                )
+              : null,
+        ),
+        child: hasImage
+            ? Stack(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Colors.black12, Colors.black45],
+                      ),
+                    ),
+                  ),
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        shape: BoxShape.circle,
+                      ),
+                      child:
+                          const Icon(Icons.edit, color: Colors.white, size: 28),
+                    ),
+                  ),
+                ],
+              )
+            : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.add_photo_alternate_rounded,
+                      size: 48, color: Colors.grey.shade500),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Tap untuk upload gambar iklan',
+                    style: TextStyle(
+                        color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  Widget _buildDateSelector(
+      String label, DateTime date, VoidCallback onTap) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(12),
+            color: Colors.white,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(Icons.calendar_today_rounded,
+                      size: 16, color: kPrimaryColor),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${date.day}/${date.month}/${date.year}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: kBackgroundColor,
       appBar: AppBar(
-        title: const Text('Buat Iklan (Upload & Bayar)'),
+        title: const Text('Buat Iklan Baru'),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black87,
+        elevation: 0.5,
         actions: [
           IconButton(
-            tooltip: 'Riwayat Iklan',
-            icon: const Icon(Icons.history),
-            onPressed: () {
-              Navigator.of(
-                context,
-              ).push(MaterialPageRoute(builder: (_) => const AdHistoryPage()));
-            },
+            tooltip: 'Riwayat',
+            icon: Icon(Icons.history, color: kPrimaryColor),
+            onPressed: () => Navigator.of(context)
+                .push(MaterialPageRoute(builder: (_) => const AdHistoryPage())),
           ),
         ],
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        child: ListView(
-          children: [
-            Card(
-              elevation: 3,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Image Section
+              _buildSectionHeader('Visual Iklan'),
+              _buildImagePicker(),
+              
+              const SizedBox(height: 20),
+              
+              // Details Section
+              _buildSectionHeader('Detail Informasi'),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: TextFormField(
+                  decoration: const InputDecoration(
+                    icon: Icon(Icons.title, color: Colors.grey),
+                    labelText: 'Judul Iklan',
+                    border: InputBorder.none,
+                  ),
+                  onSaved: (v) => _title = v?.trim() ?? '',
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Judul tidak boleh kosong'
+                      : null,
+                ),
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(14),
+
+              const SizedBox(height: 20),
+
+              // Placement Section
+              _buildSectionHeader('Penempatan'),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Informasi Iklan',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                    SwitchListTile(
+                      activeColor: kPrimaryColor,
+                      secondary: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(8)),
+                        child: Icon(Icons.view_carousel, color: kPrimaryColor),
                       ),
+                      title: const Text('Banner Beranda',
+                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: const Text('Tampil di slider halaman utama'),
+                      value: _placementBanner,
+                      onChanged: (v) => setState(() => _placementBanner = v),
                     ),
-                    const SizedBox(height: 12),
-                    Form(
-                      key: _formKey,
-                      child: Column(
-                        children: [
-                          TextFormField(
-                            decoration: const InputDecoration(
-                              labelText: 'Judul Iklan',
-                            ),
-                            onSaved: (v) => _title = v?.trim() ?? '',
-                            validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'Masukkan judul'
-                                : null,
-                          ),
-                          const SizedBox(height: 12),
-                          CheckboxListTile(
-                            value: _placementBanner,
-                            onChanged: (v) =>
-                                setState(() => _placementBanner = v ?? false),
-                            title: const Text('Banner Beranda (Poster Event)'),
-                            controlAffinity: ListTileControlAffinity.trailing,
-                          ),
-                          CheckboxListTile(
-                            value: _placementPopup,
-                            onChanged: (v) =>
-                                setState(() => _placementPopup = v ?? false),
-                            title: const Text(
-                              'Pop-up saat pertama buka aplikasi',
-                            ),
-                            controlAffinity: ListTileControlAffinity.trailing,
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  'Mulai: ${_start.toLocal().toString().split(' ')[0]}',
-                                ),
-                              ),
-                              TextButton(
-                                onPressed: _pickStartDate,
-                                child: const Text('Ubah'),
-                              ),
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  'Selesai: ${_end.toLocal().toString().split(' ')[0]}',
-                                ),
-                              ),
-                              TextButton(
-                                onPressed: _pickEndDate,
-                                child: const Text('Ubah'),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          (_imageFile == null && _imageBytes == null)
-                              ? TextButton.icon(
-                                  onPressed: _pickImage,
-                                  icon: const Icon(Icons.image),
-                                  label: const Text('Pilih Gambar'),
-                                )
-                              : Column(
-                                  children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: kIsWeb
-                                          ? (_imageBytes != null
-                                                ? Image.memory(
-                                                    _imageBytes!,
-                                                    height: 160,
-                                                    width: double.infinity,
-                                                    fit: BoxFit.cover,
-                                                  )
-                                                : Container(
-                                                    height: 160,
-                                                    color: Colors.grey,
-                                                  ))
-                                          : Image.file(
-                                              _imageFile!,
-                                              height: 160,
-                                              width: double.infinity,
-                                              fit: BoxFit.cover,
-                                            ),
-                                    ),
-                                    TextButton(
-                                      onPressed: _pickImage,
-                                      child: const Text('Ubah Gambar'),
-                                    ),
-                                  ],
-                                ),
-                        ],
+                    const Divider(height: 1),
+                    SwitchListTile(
+                      activeColor: kPrimaryColor,
+                      secondary: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                            color: Colors.purple.shade50,
+                            borderRadius: BorderRadius.circular(8)),
+                        child: const Icon(Icons.open_in_new, color: Colors.purple),
                       ),
+                      title: const Text('Popup Iklan',
+                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: const Text('Muncul saat aplikasi dibuka'),
+                      value: _placementPopup,
+                      onChanged: (v) => setState(() => _placementPopup = v),
                     ),
                   ],
                 ),
               ),
-            ),
-            const SizedBox(height: 14),
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+
+              const SizedBox(height: 20),
+
+              // Date Section
+              _buildSectionHeader('Durasi Penayangan'),
+              Row(
+                children: [
+                  _buildDateSelector('Mulai Tanggal', _start, _pickStartDate),
+                  const SizedBox(width: 12),
+                  _buildDateSelector('Selesai Tanggal', _end, _pickEndDate),
+                ],
               ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
+
+              const SizedBox(height: 30),
+
+              // Summary & Button
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.grey.withOpacity(0.1),
+                        blurRadius: 15,
+                        offset: const Offset(0, 5)),
+                  ],
                 ),
                 child: Column(
                   children: [
                     Row(
-                      children: const [
-                        Icon(Icons.receipt_long_outlined, size: 20),
-                        SizedBox(width: 10),
-                        Text(
-                          'Ringkasan Biaya',
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Durasi', style: TextStyle(color: Colors.grey)),
+                        Text('$_daysCount Hari',
+                            style: const TextStyle(fontWeight: FontWeight.bold)),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Durasi'),
-                        Text('$_daysCount hari'),
+                        const Text('Lokasi', style: TextStyle(color: Colors.grey)),
+                        Text('$_selectedPlacementsCount Penempatan',
+                            style: const TextStyle(fontWeight: FontWeight.bold)),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Divider(),
+                    ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Penempatan'),
-                        Text('${_selectedPlacementsCount} lokasi'),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Harga / hari / placement'),
-                        Text('Rp ${_formatCurrency(PER_DAY_RATE)}'),
-                      ],
-                    ),
-                    const Divider(),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'TOTAL',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
+                        const Text('Total Pembayaran',
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold)),
                         Text(
                           'Rp ${_formatCurrency(_totalAmount)}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: kPrimaryColor,
+                          ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: kPrimaryColor,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          elevation: 2,
+                        ),
+                        onPressed: _loading ? null : _submit,
+                        child: _loading
+                            ? const SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(
+                                    color: Colors.white, strokeWidth: 2),
+                              )
+                            : const Text(
+                                'Bayar Sekarang',
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white),
+                              ),
+                      ),
                     ),
                   ],
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loading ? null : _submit,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: _loading
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text(
-                      'Unggah & Bayar',
-                      style: TextStyle(fontSize: 16),
-                    ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Catatan: gambar diupload ke Cloudinary (folder: iklan). Pastikan cloudName + uploadPreset diatur.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
+              const SizedBox(height: 30),
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -1058,7 +1123,7 @@ class _AdCreatePageState extends State<AdCreatePage> {
           }
         },
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.blue.shade400,
+        selectedItemColor: const Color.fromARGB(255, 13, 158, 241),
         unselectedItemColor: Colors.grey,
         items: const [
           BottomNavigationBarItem(
