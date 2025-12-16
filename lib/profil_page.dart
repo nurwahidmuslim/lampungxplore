@@ -1,4 +1,3 @@
-// profil_page_improved.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
@@ -203,7 +202,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 }
 
 // =========================================================================
-// WIDGET SCREEN EDIT PROFIL (DIROMBAK TOTAL SESUAI GAMBAR)
+// WIDGET SCREEN EDIT PROFIL (TIDAK BERUBAH)
 // =========================================================================
 
 class EditProfileScreen extends StatefulWidget {
@@ -535,31 +534,31 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
             ),
             
-    Form(
-  key: _formKey,
-  child: Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      // Jarak penyesuaian setelah avatar
-      Transform.translate(
-        offset: Offset(0, -avatarOffset - 10), // Geser form ke atas agar menempel dengan avatar
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            
-            // --- TAMBAHKAN INI (SizedBox) ---
-            // Ubah angka 30.0 menjadi lebih besar jika ingin lebih ke bawah lagi
-            const SizedBox(height: 50.0), 
-            // --------------------------------
+   Form(
+ key: _formKey,
+ child: Column(
+   crossAxisAlignment: CrossAxisAlignment.stretch,
+   children: [
+     // Jarak penyesuaian setelah avatar
+     Transform.translate(
+       offset: Offset(0, -avatarOffset - 10), // Geser form ke atas agar menempel dengan avatar
+       child: Column(
+         crossAxisAlignment: CrossAxisAlignment.stretch,
+         children: [
+           
+           // --- TAMBAHKAN INI (SizedBox) ---
+           // Ubah angka 30.0 menjadi lebih besar jika ingin lebih ke bawah lagi
+           const SizedBox(height: 50.0), 
+           // --------------------------------
 
-            // Username (Dapat diedit)
-            _buildCustomTextField(
-              controller: _nameController,
-              label: 'Username',
-              validator: (value) => value?.isEmpty ?? true ? 'Username tidak boleh kosong' : null,
-            ),
-            
-            // ... widget lainnya (No Telepon, dll) ...
+           // Username (Dapat diedit)
+           _buildCustomTextField(
+             controller: _nameController,
+             label: 'Username',
+             validator: (value) => value?.isEmpty ?? true ? 'Username tidak boleh kosong' : null,
+           ),
+           
+           // ... widget lainnya (No Telepon, dll) ...
                         // No. Telepon
                         _buildCustomTextField(
                           controller: _phoneController,
@@ -614,12 +613,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 }
-
-// =========================================================================
-// WIDGET SCREEN DETAIL AKUN (DIHAPUS)
-// =========================================================================
-// Class AccountDetailsScreen dihapus
-
 
 // =========================================================================
 // WIDGET SCREEN TENTANG APLIKASI (TIDAK BERUBAH)
@@ -725,7 +718,7 @@ class AboutAppScreen extends StatelessWidget {
 
 
 // =========================================================================
-// WIDGET SCREEN UTAMA: PROFIL PAGE
+// WIDGET SCREEN UTAMA: PROFIL PAGE (SUDAH DIPERBARUI - ATAS KOSONG)
 // =========================================================================
 
 class ProfilPage extends StatefulWidget {
@@ -740,7 +733,7 @@ class _ProfilPageState extends State<ProfilPage> {
   int _currentIndex = 3;
   User? _user;
   String? _address;
-  // BARU: Tambahkan variabel untuk data tambahan yang akan di-fetch
+  // Variabel untuk data tambahan
   String? _phoneNumber;
   String? _birthDate;
 
@@ -757,8 +750,8 @@ class _ProfilPageState extends State<ProfilPage> {
       if (doc.exists) {
         setState(() {
           _address = doc.data()?['address'] ?? '';
-          _phoneNumber = doc.data()?['phoneNumber'] ?? ''; // Muat No. Telepon
-          _birthDate = doc.data()?['birthDate'] ?? '';     // Muat Tanggal Lahir (ISO String)
+          _phoneNumber = doc.data()?['phoneNumber'] ?? ''; 
+          _birthDate = doc.data()?['birthDate'] ?? '';     
         });
       }
     }
@@ -766,13 +759,11 @@ class _ProfilPageState extends State<ProfilPage> {
   
   // Callback untuk refresh ProfilPage setelah EditProfileScreen selesai
   void _refreshProfileData() {
-    // Memuat ulang data dari Firebase setelah perubahan di layar Edit Profil
     setState(() {
       _user = FirebaseAuth.instance.currentUser;
     });
     _loadUserData();
   }
-
 
   void _onTabTapped(int index) {
     if (index == _currentIndex) return;
@@ -800,9 +791,7 @@ class _ProfilPageState extends State<ProfilPage> {
       Navigator.pushNamedAndRemoveUntil(context, '/login', (r) => false);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Gagal logout: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal logout: $e')));
     }
   }
 
@@ -833,7 +822,6 @@ class _ProfilPageState extends State<ProfilPage> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
   
-  // BARU: Method untuk menghapus akun pengguna (dipanggil setelah konfirmasi)
   Future<void> _deleteAccount() async {
     if (_user == null) return;
     
@@ -847,13 +835,11 @@ class _ProfilPageState extends State<ProfilPage> {
 
     // 2. Hapus akun di Firebase Authentication
     try {
-      // Peringatan: Operasi ini membutuhkan re-authentication baru-baru ini.
       await _user!.delete(); 
 
       if (!mounted) return;
       _showMessage('Akun berhasil dihapus. Sampai jumpa!');
       
-      // Navigasi ke halaman login setelah berhasil dihapus
       Navigator.pushNamedAndRemoveUntil(context, '/login', (r) => false);
     } on FirebaseAuthException catch (e) {
       if (e.code == 'requires-recent-login') {
@@ -868,7 +854,6 @@ class _ProfilPageState extends State<ProfilPage> {
     }
   }
 
-  // BARU: Method untuk menampilkan dialog konfirmasi penghapusan akun
   void _showConfirmDeleteAccountDialog() {
     showDialog(
       context: context,
@@ -899,14 +884,12 @@ class _ProfilPageState extends State<ProfilPage> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     final username = _user?.displayName ?? 'Pengguna';
     final email = _user?.email ?? 'Belum ada email';
     final photo = _user?.photoURL;
 
-    // Fungsi navigasi ke Ganti Kata Sandi
     final Function() navigateToChangePassword = () {
       if (_user != null) {
         Navigator.push(
@@ -920,7 +903,6 @@ class _ProfilPageState extends State<ProfilPage> {
       }
     };
     
-    // Fungsi navigasi ke Edit Profil (Sekarang membawa data baru)
     final Function() navigateToEditProfile = () {
       if (_user != null) {
         Navigator.push(
@@ -929,8 +911,8 @@ class _ProfilPageState extends State<ProfilPage> {
             builder: (context) => EditProfileScreen(
               user: _user!,
               initialAddress: _address,
-              initialPhoneNumber: _phoneNumber, // BARU
-              initialBirthDate: _birthDate,     // BARU
+              initialPhoneNumber: _phoneNumber, 
+              initialBirthDate: _birthDate,     
               onProfileUpdated: _refreshProfileData,
             ),
           ),
@@ -940,7 +922,6 @@ class _ProfilPageState extends State<ProfilPage> {
       }
     };
 
-    // Fungsi navigasi ke Tentang Aplikasi (Full Screen)
     final Function() navigateToAboutApp = () {
       Navigator.push(
         context,
@@ -949,7 +930,6 @@ class _ProfilPageState extends State<ProfilPage> {
         ),
       );
     };
-
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F9),
@@ -992,58 +972,15 @@ class _ProfilPageState extends State<ProfilPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Top App Bar
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                    child: Row(
-                      children: [
-                        Material(
-                          color: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          elevation: 0,
-                          child: IconButton(
-                            onPressed: () {},
-                            icon: Icon(Icons.menu, color: Colors.grey[800]),
-                          ),
-                        ),
-                        const Spacer(),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.explore,
-                              color: Colors.teal[600],
-                              size: 30,
-                            ),
-                            const SizedBox(width: 12),
-                            GestureDetector(
-                              onTap: () =>
-                                  Navigator.pushNamed(context, '/profil'),
-                              child: CircleAvatar(
-                                radius: 18,
-                                backgroundColor: Colors.purple[50],
-                                child: Icon(
-                                  Icons.person,
-                                  color: Colors.purple[400],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+                  // --- BAGIAN TOP APP BAR DIHAPUS TOTAL ---
+                  // Area ini sekarang kosong, sehingga Profile Header naik ke atas.
 
-                  const SizedBox(height: 18),
-
-                  // Profile Header with nicer styling (Sesuai Screenshot Profil)
+                  // Profile Header
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: Container(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(16),
-                        // Menggunakan warna ungu/gradient yang lebih sesuai dengan screenshot
                         gradient: const LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
@@ -1067,7 +1004,7 @@ class _ProfilPageState extends State<ProfilPage> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          // Avatar + Edit Icon (disatukan)
+                          // Avatar + Edit Icon
                           Stack(
                             alignment: Alignment.center,
                             children: [
@@ -1090,7 +1027,7 @@ class _ProfilPageState extends State<ProfilPage> {
                                 right: 0,
                                 bottom: 0,
                                 child: GestureDetector(
-                                  onTap: navigateToEditProfile, // Mengarah ke Edit Profile Screen
+                                  onTap: navigateToEditProfile, 
                                   child: Container(
                                     padding: const EdgeInsets.all(4),
                                     decoration: BoxDecoration(
@@ -1173,7 +1110,7 @@ class _ProfilPageState extends State<ProfilPage> {
                               ),
                               title: const Text('Hapus Akun'),
                               trailing: const Icon(Icons.chevron_right),
-                              onTap: _showConfirmDeleteAccountDialog, // Memanggil dialog konfirmasi
+                              onTap: _showConfirmDeleteAccountDialog, 
                             ),
                           ],
                         ),
@@ -1187,7 +1124,7 @@ class _ProfilPageState extends State<ProfilPage> {
                               leading: const Icon(Icons.info_outline),
                               title: const Text('Tentang Aplikasi'),
                               trailing: const Icon(Icons.chevron_right),
-                              onTap: navigateToAboutApp, // Navigasi ke layar Tentang Aplikasi
+                              onTap: navigateToAboutApp, 
                             ),
                             const Divider(height: 1),
                             ListTile(
