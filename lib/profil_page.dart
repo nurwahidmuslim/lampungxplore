@@ -448,8 +448,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     // Penyesuaian agar Avatar tidak terpotong (Mengurangi Offset)
     const double avatarRadius = 50.0;
-    const double overlapHeight = 25.0; // Seberapa dalam avatar masuk ke header (lebih kecil dari sebelumnya)
-    const double topBarHeight = 80.0; 
+    const double overlapHeight = 80.0; // Seberapa dalam avatar masuk ke header (lebih kecil dari sebelumnya)
+    const double topBarHeight = 50.0; 
     final double avatarOffset = avatarRadius + (topBarHeight - overlapHeight) - topBarHeight;
 
     return Scaffold(
@@ -535,24 +535,31 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
             ),
             
-            Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Jarak penyesuaian setelah avatar
-                  Transform.translate(
-                    offset: Offset(0, -avatarOffset - 10), // Geser form ke atas agar menempel dengan avatar
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Username (Dapat diedit)
-                        _buildCustomTextField(
-                          controller: _nameController,
-                          label: 'Username',
-                          validator: (value) => value?.isEmpty ?? true ? 'Username tidak boleh kosong' : null,
-                        ),
+    Form(
+  key: _formKey,
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      // Jarak penyesuaian setelah avatar
+      Transform.translate(
+        offset: Offset(0, -avatarOffset - 10), // Geser form ke atas agar menempel dengan avatar
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            
+            // --- TAMBAHKAN INI (SizedBox) ---
+            // Ubah angka 30.0 menjadi lebih besar jika ingin lebih ke bawah lagi
+            const SizedBox(height: 50.0), 
+            // --------------------------------
 
+            // Username (Dapat diedit)
+            _buildCustomTextField(
+              controller: _nameController,
+              label: 'Username',
+              validator: (value) => value?.isEmpty ?? true ? 'Username tidak boleh kosong' : null,
+            ),
+            
+            // ... widget lainnya (No Telepon, dll) ...
                         // No. Telepon
                         _buildCustomTextField(
                           controller: _phoneController,
